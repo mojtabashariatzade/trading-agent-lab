@@ -42,7 +42,9 @@ Also: Config file (non-sensitive flags only)
 ## Self-heal
 - Failure-pattern registry: `%LOCALAPPDATA%\trading-agent-lab\status\failure_patterns.json`
 - Maintenance reports: `%LOCALAPPDATA%\trading-agent-lab\status\maintenance\`
-- Max autonomous repairs per failure class: **3** then `SELF_HEAL_BLOCKED`
+- Max autonomous repairs per failure class: **3**, then `SELF_HEAL_BLOCKED` for 10 minutes, then retry (does not freeze the queue overnight)
+- Launching without a `run_id` is not a heal; only a live DEVELOPING/REVIEWING run counts
+- Stuck restarts reuse the same daily launch slot (task/role/attempt)
 - After CI+QA PASS, allowlisted self-heal files are auto-committed and pushed
 - Never auto-modifies live trading / broker / secrets / spend / security without approval
 

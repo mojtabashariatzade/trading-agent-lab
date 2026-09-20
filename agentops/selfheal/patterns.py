@@ -6,6 +6,9 @@ from pathlib import Path
 
 
 MAX_REPAIR_ATTEMPTS = 3
+# Transient worker/launch classes cool down and retry; they must not kill the queue overnight.
+CLASS_COOLDOWN_SECONDS = 600
+TRANSIENT_STRATEGIES = frozenset({"recover_worker", "defer_upstream"})
 
 # Built-in recoverable patterns → strategy id
 BUILTIN_PATTERNS = {
@@ -31,8 +34,8 @@ BUILTIN_PATTERNS = {
     },
     "queue_dependency_hard_block": {
         "match": ["dependency_hard_block"],
-        "strategy": "recover_worker",
-        "description": "Hard-blocked upstream task blocks dependents; attempt recovery of upstream",
+        "strategy": "defer_upstream",
+        "description": "Dependent is waiting; recover the upstream blocked task only, never a second cap",
     },
 }
 
@@ -128,4 +131,25 @@ class PatternRegistry:
 
     def is_blocked(self, class_id: str) -> bool:
         row = self.data.get("classes", {}).get(class_id, {})
-        return bool(row.get("self_heal_blocked")) or self.repair_count(class_id) >= MAX_REPAIR_ATTEMPTS
+        return bool(row.get("self_heal_blocked"))
+
+    def release_cooled(self, now: float | None = None) -> list[str]:
+        """After cooldown, clear transient class blocks so overnight work can resume."""
+        now = time.time() if now is None else float(now)
+        released: list[str] = []
+        for class_id, row in self.data.get("classes", {}).items():
+            strategy = row.get("strategy") or self.strategy_for(class_id)
+            if strategy not in TRANSIENT_STRATEGIES and class_id not in BUILTIN_PATTERNS:
+                continue
+            if not row.get("self_heal_blocked") and int(row.get("repair_attempts", 0)) < MAX_REPAIR_ATTEMPTS:
+                continue
+            last = float(row.get("last_seen_at") or 0)
+            if now - last < CLASS_COOLDOWN_SECONDS:
+                continue
+            row["self_heal_blocked"] = False
+            row["repair_attempts"] = 0
+            row["last_released_at"] = now
+            released.append(class_id)
+        if released:
+            self.save()
+        return released

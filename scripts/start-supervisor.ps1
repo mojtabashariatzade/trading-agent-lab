@@ -1,3 +1,4 @@
+param([switch]$Restart)
 # Detached supervisor launcher. MUST exit quickly — never blocks Cursor chat.
 # Does NOT survive PC sleep/shutdown. Does NOT enable live trading.
 # Monitoring: scripts/check-supervisor-status.ps1 (finite snapshot only). NEVER secrets.env.
@@ -66,7 +67,7 @@ $env:MAX_STUCK_RETRIES = if ($env:MAX_STUCK_RETRIES) { $env:MAX_STUCK_RETRIES } 
 $env:STUCK_BACKOFF_SECONDS = if ($env:STUCK_BACKOFF_SECONDS) { $env:STUCK_BACKOFF_SECONDS } else { "15" }
 $restartFlag = Join-Path $StatusDir "supervisor_restart.enabled"
 $env:SUPERVISOR_RESTART_ENABLED = if (Test-Path $restartFlag) { "true" } else { "false" }
-$env:MAX_DAILY_LAUNCHES = if ($env:MAX_DAILY_LAUNCHES) { $env:MAX_DAILY_LAUNCHES } else { "4" }
+$env:MAX_DAILY_LAUNCHES = if ($env:MAX_DAILY_LAUNCHES) { $env:MAX_DAILY_LAUNCHES } else { "12" }
 $env:MAX_ATTEMPTS = if ($env:MAX_ATTEMPTS) { $env:MAX_ATTEMPTS } else { "2" }
 $env:MAX_RUN_SECONDS = if ($env:MAX_RUN_SECONDS) { $env:MAX_RUN_SECONDS } else { "5400" }
 $env:DEFAULT_BRANCH = if ($env:DEFAULT_BRANCH) { $env:DEFAULT_BRANCH } else { "main" }
@@ -114,8 +115,12 @@ if (Test-Path $PidFile) {
   if ($old) {
     $proc = Get-Process -Id $old -ErrorAction SilentlyContinue
     if ($proc) {
-      Write-Host "DETACHED_ALREADY pid=$old status=$($env:RUNTIME_STATUS_PATH)"
-      exit 0
+      if (-not $Restart) {
+        Write-Host "DETACHED_ALREADY pid=$old status=$($env:RUNTIME_STATUS_PATH)"
+        exit 0
+      }
+      Stop-Process -Id $old -Force -ErrorAction SilentlyContinue
+      Start-Sleep -Milliseconds 400
     }
   }
 }

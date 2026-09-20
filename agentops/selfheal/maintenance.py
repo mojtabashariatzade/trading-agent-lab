@@ -8,6 +8,7 @@ import time
 
 from .patterns import BUILTIN_PATTERNS, MAX_REPAIR_ATTEMPTS, PatternRegistry
 from .publish import publish_selfheal_changes
+from ..providers import ProviderError
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class MaintenanceLoop:
         self.report_dir.mkdir(parents=True, exist_ok=True)
 
     def tick(self) -> list[dict]:
+        self.resume_cooled_blocks()
         reports = []
         for finding in self.scan():
             report = self.handle(finding)
@@ -41,6 +43,37 @@ class MaintenanceLoop:
         if reports:
             self.db.set("selfheal_last_reports", reports[-5:])
         return reports
+
+    def resume_cooled_blocks(self) -> list[str]:
+        """Clear expired SELF_HEAL_BLOCKED flags so a transient stall cannot freeze the night."""
+        released = self.registry.release_cooled()
+        if not released:
+            return []
+        markers = (
+            "SELF_HEAL_BLOCKED",
+            "STUCK:",
+            "Attempt cap",
+            "Cursor terminal",
+            "dependency_hard_block",
+        )
+        for task in self.db.tasks():
+            blob = str(task.get("feedback") or task.get("last_error") or "")
+            if not task.get("self_heal_blocked") and task.get("state") != "BLOCKED":
+                continue
+            if not any(token in blob for token in markers):
+                continue
+            task["self_heal_blocked"] = False
+            task["selfheal_block_reported"] = False
+            task["stuck_retries"] = 0
+            task["retryable"] = True
+            task["backoff_until"] = 0
+            task["role"] = task.get("role") or "dev"
+            task["state"] = "LAUNCHING_DEV" if task.get("role") != "qa" else "LAUNCHING_QA"
+            task["run_id"] = None
+            task["agent_id"] = None
+            task["launch_at"] = None
+            self.db.save(task)
+        return released
 
     def scan(self) -> list[dict]:
         findings = []
@@ -63,7 +96,8 @@ class MaintenanceLoop:
                     "kind": "blocked_task",
                 }
             )
-        # Dependency stall: PENDING waiting on hard-blocked upstream
+        # Dependency stall is a symptom: only record it when the upstream is not already scanned.
+        already = {item["task_id"] for item in findings}
         for task in tasks:
             if task.get("state") != "PENDING":
                 continue
@@ -74,7 +108,7 @@ class MaintenanceLoop:
             if not deps or deps <= done_ids:
                 continue
             blockers = [b for b in blocked if b["id"] in deps]
-            if blockers:
+            if blockers and blockers[0]["id"] not in already:
                 findings.append(
                     {
                         "task_id": blockers[0]["id"],
@@ -103,7 +137,14 @@ class MaintenanceLoop:
         class_id = finding["class_id"]
         task = finding["task"]
         detail = finding["detail"]
+        strategy = self.registry.strategy_for(class_id)
+        if strategy == "defer_upstream":
+            return None
         if task.get("self_heal_blocked") or self.registry.is_blocked(class_id):
+            if task.get("selfheal_block_reported"):
+                return None
+            task["selfheal_block_reported"] = True
+            self.db.save(task)
             return self._report(
                 finding,
                 status="SELF_HEAL_BLOCKED",
@@ -122,7 +163,6 @@ class MaintenanceLoop:
             return None
 
         diagnostics = self.capture_diagnostics(finding)
-        strategy = self.registry.strategy_for(class_id)
         regression = self.ensure_regression_test(class_id, detail)
         success = False
         fix = ""
@@ -201,19 +241,40 @@ class MaintenanceLoop:
         )
 
     def apply_recover_worker(self, task: dict, detail: str) -> tuple[bool, str, str]:
-        """Smallest runtime fix: terminate worker residue and restart via stuck recovery."""
+        """Restart the worker. LAUNCHING without a run_id is not a heal — only a live run is."""
         before = task.get("state")
-        self.controller.recover_or_block(task, detail[:1000])
+        live = self.db.task(task["id"]) or task
+        if (
+            int(live.get("stuck_retries", 0)) > self.cfg.max_stuck_retries
+            or live.get("self_heal_blocked")
+            or live.get("state") == "BLOCKED"
+        ):
+            live = dict(live)
+            live["stuck_retries"] = 0
+            live["self_heal_blocked"] = False
+            live["selfheal_block_reported"] = False
+            live["retryable"] = True
+            live["backoff_until"] = 0
+            self.db.save(live)
+        self.controller.recover_or_block(live, detail[:1000], immediate=True)
         after = self.db.task(task["id"]) or {}
+        if after.get("state") in {"LAUNCHING_DEV", "LAUNCHING_QA"} and not after.get("run_id"):
+            if self.controller.clock() >= float(after.get("backoff_until") or 0):
+                try:
+                    self.controller.launch(after, after.get("role") or "dev")
+                except ProviderError:
+                    pass
+                after = self.db.task(task["id"]) or after
         state = after.get("state")
-        if state in {"LAUNCHING_DEV", "LAUNCHING_QA", "PENDING", "DEVELOPING", "REVIEWING"}:
+        if state in {"DEVELOPING", "REVIEWING"}:
             return True, f"recover_or_block ({before} -> {state})", after.get("id", "")
-        if state == "BLOCKED" and after.get("self_heal_blocked"):
-            return False, f"recover_or_block exhausted -> BLOCKED", ""
-        # recover may have blocked after max stuck retries
+        if state in {"LAUNCHING_DEV", "LAUNCHING_QA"} and after.get("run_id"):
+            return True, f"recover_or_block ({before} -> {state} with run)", after.get("id", "")
+        if state == "PENDING":
+            return True, f"recover_or_block ({before} -> PENDING)", after.get("id", "")
         if state == "BLOCKED":
-            return False, f"recover_or_block resulted in BLOCKED", ""
-        return False, f"unexpected state after recover: {state}", ""
+            return False, "recover_or_block resulted in BLOCKED", ""
+        return False, f"not healed yet (state={state}, run_id={after.get('run_id')})", ""
 
     def capture_diagnostics(self, finding: dict) -> dict:
         task = finding["task"]
