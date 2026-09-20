@@ -67,6 +67,7 @@ $env:MAX_STUCK_RETRIES = if ($env:MAX_STUCK_RETRIES) { $env:MAX_STUCK_RETRIES } 
 $env:STUCK_BACKOFF_SECONDS = if ($env:STUCK_BACKOFF_SECONDS) { $env:STUCK_BACKOFF_SECONDS } else { "15" }
 $restartFlag = Join-Path $StatusDir "supervisor_restart.enabled"
 $env:SUPERVISOR_RESTART_ENABLED = if (Test-Path $restartFlag) { "true" } else { "false" }
+# Cloud/paid Cursor budget only. LocalCursor ignores this as a team-wide wall.
 $env:MAX_DAILY_LAUNCHES = if ($env:MAX_DAILY_LAUNCHES) { $env:MAX_DAILY_LAUNCHES } else { "12" }
 $env:MAX_ATTEMPTS = if ($env:MAX_ATTEMPTS) { $env:MAX_ATTEMPTS } else { "2" }
 $env:MAX_RUN_SECONDS = if ($env:MAX_RUN_SECONDS) { $env:MAX_RUN_SECONDS } else { "5400" }

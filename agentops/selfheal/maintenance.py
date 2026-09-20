@@ -34,7 +34,6 @@ class MaintenanceLoop:
         self.report_dir.mkdir(parents=True, exist_ok=True)
 
     def tick(self) -> list[dict]:
-        self.resume_cooled_blocks()
         reports = []
         for finding in self.scan():
             report = self.handle(finding)
@@ -43,37 +42,6 @@ class MaintenanceLoop:
         if reports:
             self.db.set("selfheal_last_reports", reports[-5:])
         return reports
-
-    def resume_cooled_blocks(self) -> list[str]:
-        """Clear expired SELF_HEAL_BLOCKED flags so a transient stall cannot freeze the night."""
-        released = self.registry.release_cooled()
-        if not released:
-            return []
-        markers = (
-            "SELF_HEAL_BLOCKED",
-            "STUCK:",
-            "Attempt cap",
-            "Cursor terminal",
-            "dependency_hard_block",
-        )
-        for task in self.db.tasks():
-            blob = str(task.get("feedback") or task.get("last_error") or "")
-            if not task.get("self_heal_blocked") and task.get("state") != "BLOCKED":
-                continue
-            if not any(token in blob for token in markers):
-                continue
-            task["self_heal_blocked"] = False
-            task["selfheal_block_reported"] = False
-            task["stuck_retries"] = 0
-            task["retryable"] = True
-            task["backoff_until"] = 0
-            task["role"] = task.get("role") or "dev"
-            task["state"] = "LAUNCHING_DEV" if task.get("role") != "qa" else "LAUNCHING_QA"
-            task["run_id"] = None
-            task["agent_id"] = None
-            task["launch_at"] = None
-            self.db.save(task)
-        return released
 
     def scan(self) -> list[dict]:
         findings = []
@@ -186,6 +154,7 @@ class MaintenanceLoop:
                     merge_commit = publish_selfheal_changes(
                         self.root, class_id=class_id, regression_rel=regression
                     ) or "n/a-runtime-recovery"
+                    self.registry.release_after_recorded_fix(class_id, f"healed:{merge_commit}")
             self.registry.record_attempt(class_id, success=success, detail=detail)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Self-heal handler failed")
@@ -244,6 +213,9 @@ class MaintenanceLoop:
         """Restart the worker. LAUNCHING without a run_id is not a heal — only a live run is."""
         before = task.get("state")
         live = self.db.task(task["id"]) or task
+        if live.get("pr") and self.controller.reconcile_existing_delivery(live):
+            after = self.db.task(task["id"]) or live
+            return True, f"reconciled existing PR {after.get('pr')} ({before} -> {after.get('state')})", after.get("id", "")
         if (
             int(live.get("stuck_retries", 0)) > self.cfg.max_stuck_retries
             or live.get("self_heal_blocked")

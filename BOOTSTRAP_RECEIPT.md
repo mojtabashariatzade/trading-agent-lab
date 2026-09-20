@@ -42,9 +42,11 @@ Also: Config file (non-sensitive flags only)
 ## Self-heal
 - Failure-pattern registry: `%LOCALAPPDATA%\trading-agent-lab\status\failure_patterns.json`
 - Maintenance reports: `%LOCALAPPDATA%\trading-agent-lab\status\maintenance\`
-- Max autonomous repairs per failure class: **3**, then `SELF_HEAL_BLOCKED` for 10 minutes, then retry (does not freeze the queue overnight)
-- Launching without a `run_id` is not a heal; only a live DEVELOPING/REVIEWING run counts
-- Stuck restarts reuse the same daily launch slot (task/role/attempt)
+- Max autonomous repairs per failure class: **3** then `SELF_HEAL_BLOCKED` (counters persist across restart; reset only after a recorded fix, not on a timer)
+- Launching without a `run_id` is not a heal and is not reported as `RUNNING / Kian`
+- `MAX_DAILY_LAUNCHES` is a cloud/paid budget. Local `LocalCursor` workers are not a daily team wall
+- Ready PRs resume at CI/QA; Kian is not relaunched for the same delivery
+- Independent ready tasks continue while another task waits on CI, approval, or a hard block
 - After CI+QA PASS, allowlisted self-heal files are auto-committed and pushed
 - Never auto-modifies live trading / broker / secrets / spend / security without approval
 

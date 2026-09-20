@@ -6,8 +6,6 @@ from pathlib import Path
 
 
 MAX_REPAIR_ATTEMPTS = 3
-# Transient worker/launch classes cool down and retry; they must not kill the queue overnight.
-CLASS_COOLDOWN_SECONDS = 600
 TRANSIENT_STRATEGIES = frozenset({"recover_worker", "defer_upstream"})
 
 # Built-in recoverable patterns → strategy id
@@ -133,23 +131,13 @@ class PatternRegistry:
         row = self.data.get("classes", {}).get(class_id, {})
         return bool(row.get("self_heal_blocked"))
 
-    def release_cooled(self, now: float | None = None) -> list[str]:
-        """After cooldown, clear transient class blocks so overnight work can resume."""
-        now = time.time() if now is None else float(now)
-        released: list[str] = []
-        for class_id, row in self.data.get("classes", {}).items():
-            strategy = row.get("strategy") or self.strategy_for(class_id)
-            if strategy not in TRANSIENT_STRATEGIES and class_id not in BUILTIN_PATTERNS:
-                continue
-            if not row.get("self_heal_blocked") and int(row.get("repair_attempts", 0)) < MAX_REPAIR_ATTEMPTS:
-                continue
-            last = float(row.get("last_seen_at") or 0)
-            if now - last < CLASS_COOLDOWN_SECONDS:
-                continue
-            row["self_heal_blocked"] = False
-            row["repair_attempts"] = 0
-            row["last_released_at"] = now
-            released.append(class_id)
-        if released:
-            self.save()
-        return released
+    def release_after_recorded_fix(self, class_id: str, reason: str) -> dict:
+        """Reset a class only after a recorded cause (applied fix), never on a timer."""
+        classes = self.data.setdefault("classes", {})
+        row = classes.setdefault(class_id, {"repair_attempts": 0, "self_heal_blocked": False})
+        row["self_heal_blocked"] = False
+        row["repair_attempts"] = 0
+        row["last_released_at"] = time.time()
+        row["release_reason"] = reason[:500]
+        self.save()
+        return row

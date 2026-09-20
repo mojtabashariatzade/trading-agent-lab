@@ -178,15 +178,15 @@ class PatternCooldownTests(unittest.TestCase):
                 reg.record_attempt("stuck_no_progress", success=ok, detail="STUCK")
             self.assertFalse(reg.is_blocked("stuck_no_progress"))
 
-    def test_release_cooled_after_cap(self):
+    def test_timer_does_not_wipe_attempts(self):
         with tempfile.TemporaryDirectory() as tmp:
             reg = PatternRegistry(path=str(Path(tmp) / "p.json"))
             for _ in range(MAX_REPAIR_ATTEMPTS):
                 reg.record_attempt("stuck_no_progress", success=False, detail="STUCK")
             self.assertTrue(reg.is_blocked("stuck_no_progress"))
-            reg.data["classes"]["stuck_no_progress"]["last_seen_at"] = time.time() - 601
-            released = reg.release_cooled()
-            self.assertIn("stuck_no_progress", released)
+            reg.data["classes"]["stuck_no_progress"]["last_seen_at"] = time.time() - 3600
+            self.assertTrue(reg.is_blocked("stuck_no_progress"))
+            reg.release_after_recorded_fix("stuck_no_progress", "applied controller reconcile")
             self.assertFalse(reg.is_blocked("stuck_no_progress"))
 
 
