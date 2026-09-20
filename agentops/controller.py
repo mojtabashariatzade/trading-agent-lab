@@ -279,7 +279,8 @@ class Controller:
             uuid.NAMESPACE_URL,
             f"{self.cfg.repo_url}/{task['id']}/{task['attempt']}/{role}/sr{stuck}",
         ))
-        if not self.db.reserve(agent_id, self.day(), self.cfg.max_daily_launches):
+        if not self.db.reserve(self.launch_quota_id(task, role), self.day(), self.cfg.max_daily_launches):
+            self.touch_progress(task, f"daily_limit:{self.day()}:{self.db.launch_count(self.day())}")
             self.event(task, "DAILY_LAUNCH_LIMIT", "Waiting for next UTC day. This is a count limit, NOT a monetary cap.")
             return
         task.update(agent_id=agent_id, run_id=None, role=role, launch_at=task.get("launch_at") or self.clock(), state="LAUNCHING_QA" if role == "qa" else "LAUNCHING_DEV")
@@ -308,7 +309,11 @@ class Controller:
             except ProviderError:
                 pass
 
-    def recover_or_block(self, task: dict, reason: str) -> None:
+    def launch_quota_id(self, task: dict, role: str) -> str:
+        """One daily slot per task/role/attempt — stuck restarts must not burn extra launches."""
+        return f"{task['id']}:{role}:{int(task.get('attempt', 0))}:{self.day()}"
+
+    def recover_or_block(self, task: dict, reason: str, *, immediate: bool = False) -> None:
         """Auto-restart stuck/crashed workers up to max_stuck_retries; then BLOCK and continue queue."""
         self.terminate_worker(task)
         retries = int(task.get("stuck_retries", 0)) + 1
@@ -335,7 +340,7 @@ class Controller:
                 f"Stuck/crash retries exhausted ({self.cfg.max_stuck_retries}): {reason}",
             )
             return
-        backoff = self.cfg.stuck_backoff_seconds * retries
+        backoff = 0 if immediate else self.cfg.stuck_backoff_seconds * retries
         preserved["backoff_until"] = self.clock() + backoff
         if role == "qa" or task.get("state") in {"REVIEWING", "LAUNCHING_QA"}:
             preserved.update(state="LAUNCHING_QA", role="qa", launch_at=None, run_id=None, agent_id=None)
@@ -361,13 +366,18 @@ class Controller:
                 continue
             if now < float(task.get("backoff_until") or 0):
                 continue
+            if str(task.get("progress_fingerprint") or "").startswith("daily_limit:"):
+                continue
             last = float(task.get("last_progress_at") or task.get("launch_at") or now)
-            if now - last < timeout:
+            stall = timeout
+            if state in {"LAUNCHING_DEV", "LAUNCHING_QA"} and not task.get("run_id"):
+                stall = min(timeout, 90)
+            if now - last < stall:
                 continue
             self.recover_or_block(
                 task,
                 f"STUCK: no worker progress for {int(now - last)}s "
-                f"(timeout {timeout}s) in state {state}",
+                f"(timeout {stall}s) in state {state}",
             )
         for task in self.db.research_tasks():
             state = task.get("state")
@@ -415,7 +425,7 @@ class Controller:
             uuid.NAMESPACE_URL,
             f"{self.cfg.repo_url}/research/{task['id']}/{attempt}/{task['owner_role']}",
         ))
-        if not self.db.reserve(agent_id, self.day(), self.cfg.max_daily_launches):
+        if not self.db.reserve(f"research:{task['id']}:{attempt}:{self.day()}", self.day(), self.cfg.max_daily_launches):
             self.event(task, "DAILY_LAUNCH_LIMIT", "Research waiting for next UTC day launch slot.")
             return
         task.update(

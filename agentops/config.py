@@ -32,7 +32,7 @@ class Settings:
     max_stuck_retries: int = 3
     stuck_backoff_seconds: int = 15
     supervisor_restart_enabled: bool = False
-    max_daily_launches: int = 4
+    max_daily_launches: int = 12
     max_attempts: int = 2
     max_phase: int = 1
     max_run_seconds: int = 5400
@@ -130,7 +130,7 @@ class Settings:
             max_stuck_retries=int(os.environ.get("MAX_STUCK_RETRIES", "3")),
             stuck_backoff_seconds=int(os.environ.get("STUCK_BACKOFF_SECONDS", "15")),
             supervisor_restart_enabled=flag("SUPERVISOR_RESTART_ENABLED"),
-            max_daily_launches=int(os.environ.get("MAX_DAILY_LAUNCHES", "4")),
+            max_daily_launches=int(os.environ.get("MAX_DAILY_LAUNCHES", "12")),
             max_attempts=int(os.environ.get("MAX_ATTEMPTS", "2")),
             max_run_seconds=int(os.environ.get("MAX_RUN_SECONDS", "5400")),
             poll_seconds=int(os.environ.get("POLL_SECONDS", "30")),
