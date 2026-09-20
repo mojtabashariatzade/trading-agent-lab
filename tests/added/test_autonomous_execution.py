@@ -161,7 +161,7 @@ class AutonomousExecutionTests(unittest.TestCase):
         self.assertEqual(ctl2.db.launch_count(ctl2.day()), before)
 
     def test_two_task_dependency_order_hands_off(self):
-        cfg, db, gh, cu, tg, clock, ctl = self._ctrl(auto_merge_safe=True)
+        cfg, db, gh, cu, tg, clock, ctl = self._ctrl()
         ctl.handle(update("/resume"))
         ctl.tick()
         t = db.task("T001")

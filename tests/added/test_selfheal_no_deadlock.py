@@ -32,10 +32,7 @@ class LaunchQuotaAndStallTests(unittest.TestCase):
         self.c.tick()
         self.assertEqual(self.db.launch_count(self.c.day()), 1)
         t = self.db.task("T001")
-        t["last_progress_at"] = self.clock.now - 301
-        t["backoff_until"] = 0
-        self.db.save(t)
-        self.c.cfg = replace(self.cfg, stuck_timeout_seconds=300, max_stuck_retries=3, stuck_backoff_seconds=5)
+        self.cu.runs[t["run_id"]]["status"] = "ERROR"
         self.c.tick()
         self.clock.now += 6
         self.c.tick()
