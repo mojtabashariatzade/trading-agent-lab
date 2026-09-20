@@ -138,7 +138,7 @@ def main() -> int:
         "real_cursor": using_real_cursor,
         "live_trading": False,
     }
-    print(json.dumps(out, indent=2, ensure_ascii=False))
+    print(json.dumps(out, indent=2, ensure_ascii=True))
     receipt = state_dir / "last_smoke.json"
     receipt.write_text(json.dumps(out, indent=2), encoding="utf-8")
     print("SMOKE_RECEIPT=" + str(receipt))
