@@ -1,32 +1,52 @@
-# Bootstrap receipt
+# Status receipt — autonomous-by-default + persistent supervisor
 
-Date: 2026-09-21. Account: **mojtabashariatzade**
+Date: 2026-09-21. No Cursor Cloud. No live trading. No broker access.
 
-## Done
-- Authenticated GitHub CLI (keyring) + `gh auth setup-git` so **normal git push/pull no longer needs device codes** on this PC
-- Private repo: https://github.com/mojtabashariatzade/trading-agent-lab
-- Pushed `main` at commit `29cfae3` (research-team verified tree)
-- Repo is **private**
+## Operating model
+- Normal development/research/tests/PRs: auto-merge when CI green + Negar PASS + no high-risk files.
+- Human approval only for: live trading, broker, secrets, paid spend, destructive ops, production deploy, security/branch-protection, irreversible data.
+- Supervisor runs as a real OS process independent of the Cursor chat window.
 
-## Intentionally deferred / blocked
-- `.github/workflows/ci.yml` not pushed: GitHub OAuth app token still lacks `workflow` scope (device refresh never stuck). CI file is ready for a **one-time web upload**.
-- Classic branch protection API returned **403** (needs GitHub Pro on private repos, or public repo). Ruleset attempt recorded separately.
+## How to start / monitor (Windows)
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start-supervisor.ps1
+powershell -ExecutionPolicy Bypass -File scripts\check-supervisor-status.ps1
+```
 
-## One-time CI upload (browser, no device code)
-1. Open https://github.com/mojtabashariatzade/trading-agent-lab/new/main/.github/workflows  
-2. Filename: `ci.yml`  
-3. Paste contents from download: `C:\Users\LENOVO\Downloads\ci.yml`  
-4. Commit to `main` (or open a PR if you prefer)
+## Three facts to verify it is alive
 
-## No more device codes for daily work
-`gh` + git credential helper are configured for this machine. Future `git push` / `gh` calls reuse the keyring token.
-Only updating **workflow files via CLI** would need `workflow` scope again — use the website for that, or create a classic PAT with `repo`+`workflow` locally (never paste tokens in chat) and run:
-`gh auth login --with-token < path\to\pat.txt`
+| Item | Value |
+|---|---|
+| Main process name | `python` (`python.exe`) |
+| Supervisor command | `python -m agentops.supervisor` |
+| Status file | `%LOCALAPPDATA%\trading-agent-lab\status\runtime_status.json` |
 
-## Still not done
-Cursor Cloud, Telegram, Docker hosting, smoke tests, live trading (disabled).
+Also: Config file (non-sensitive flags only)
+`%LOCALAPPDATA%\trading-agent-lab\status\runtime_config.json`
 
-## Downloads
-- Project zip: `C:\Users\LENOVO\Downloads\trading-agent-lab-research-verified.zip`
-- CI file: `C:\Users\LENOVO\Downloads\ci.yml`
-- This receipt: `C:\Users\LENOVO\Downloads\BOOTSTRAP_RECEIPT.md`
+## Monitoring policy (no approval needed)
+- Read-only checks (`Get-Content`, `Get-Process`) on status/config/logs/pid are always allowed.
+- Never open `secrets.env` for heartbeat or status.
+- Trust `runtime_status.json` + alive PID over the Cursor chat UI.
+
+## Watchdog
+- Stuck timeout: 5 minutes (`STUCK_TIMEOUT_SECONDS=300`)
+- Max automatic stuck/crash retries: 3 (then BLOCKED, continue queue)
+- Supervisor OS restart: `scripts\register-supervisor-autostart.ps1` (Task Scheduler)
+
+## Cursor chat must not block
+- Use `scripts\ensure-supervisor.ps1` only (exits in ~1s after DETACHED_OK).
+- Never `tail -f` / `Get-Content -Wait` on supervisor logs from Cursor.
+- Monitor via finite `runtime_status.json` snapshots only.
+
+## Self-heal
+- Failure-pattern registry: `%LOCALAPPDATA%\trading-agent-lab\status\failure_patterns.json`
+- Maintenance reports: `%LOCALAPPDATA%\trading-agent-lab\status\maintenance\`
+- Max autonomous repairs per failure class: **3** then `SELF_HEAL_BLOCKED`
+- After CI+QA PASS, allowlisted self-heal files are auto-committed and pushed
+- Never auto-modifies live trading / broker / secrets / spend / security without approval
+
+## Notes
+- PC sleep/shutdown stops local execution until the machine wakes (Task Scheduler/Startup resumes when logged on).
+- Heartbeat writes at least every 5 minutes (`HEARTBEAT_SECONDS=300`).
+- Telegram status mirror is optional.

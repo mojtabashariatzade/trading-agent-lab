@@ -4,10 +4,43 @@ from pathlib import PurePosixPath
 import re
 
 
-PROTECTED = ("agentops/", ".github/", ".cursor/", "agents/", "planning/", "tests/test_", "trading_lab/contracts.py", "AGENTS.md", "Dockerfile", "compose.yaml", "pyproject.toml", "requirements", ".env", "docs/DEPLOY", "docs/SECURITY")
+PROTECTED = (
+    "agentops/",
+    ".github/",
+    ".cursor/",
+    "agents/",
+    "planning/",
+    "tests/test_",
+    "trading_lab/contracts.py",
+    "AGENTS.md",
+    "Dockerfile",
+    "compose.yaml",
+    "pyproject.toml",
+    "requirements",
+    ".env",
+    "docs/DEPLOY",
+    "docs/SECURITY",
+)
+
+# Self-heal may auto-merge only these prefixes (still never secrets/live/broker).
+MAINTENANCE_AUTO_PREFIXES = (
+    "agentops/selfheal/",
+    "tests/added/",
+)
+
+HIGH_RISK_MARKERS = (
+    "live_trading",
+    "live-trading",
+    "broker",
+    "credential",
+    "secrets",
+    "branch_protection",
+    "branch-protection",
+)
 
 
 def validate_changes(files, allowed_prefixes):
+    """Hard reject unsafe/out-of-scope diffs. High-risk in-scope diffs are allowed through QA."""
     if not files:
         return False, "empty diff"
     if len(files) > 150:
@@ -17,15 +50,40 @@ def validate_changes(files, allowed_prefixes):
         path = PurePosixPath(name)
         if path.is_absolute() or ".." in path.parts or "\\" in name:
             return False, "unsafe path"
-        if item.get("status") not in {"added", "modified"}:
-            return False, "deletions and renames require manual review"
-        if name.startswith(PROTECTED):
-            return False, f"protected path: {name}"
         if not any(name.startswith(prefix) for prefix in allowed_prefixes):
             return False, f"outside task scope: {name}"
         if any(p.lower() in {".env", ".ssh", "secrets", "credentials"} for p in path.parts):
             return False, "secret-like path"
     return True, "allowed"
+
+
+def approval_required_reasons(files) -> list[str]:
+    """Human approval gates for otherwise valid diffs (autonomous-by-default elsewhere)."""
+    reasons: list[str] = []
+    for item in files:
+        name = item["filename"]
+        path = PurePosixPath(name)
+        status = item.get("status")
+        if status not in {"added", "modified"}:
+            reasons.append(f"destructive change ({status}): {name}")
+        if name.startswith(PROTECTED):
+            if any(name.startswith(prefix) for prefix in MAINTENANCE_AUTO_PREFIXES):
+                continue
+            reasons.append(f"protected/high-risk path: {name}")
+        lowered = name.lower()
+        for marker in HIGH_RISK_MARKERS:
+            if marker in lowered:
+                reasons.append(f"high-risk marker '{marker}': {name}")
+                break
+        if any(p.lower() in {"broker", "live"} for p in path.parts):
+            reasons.append(f"broker/live path segment: {name}")
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for reason in reasons:
+        if reason not in seen:
+            seen.add(reason)
+            ordered.append(reason)
+    return ordered
 
 
 def pr_number(url, repo):
@@ -79,7 +137,6 @@ def authenticate_update(update, control_chat, owner_ids, now):
         return None
     if message.get("chat", {}).get("type") not in {"private", "group", "supergroup"}:
         return None
-    # Callback validity is tied to the server-side approval deadline, not the old report date.
     if not callback and not 0 <= now - message.get("date", 0) <= 600:
         return None
     command = callback.get("data", "") if callback else message.get("text", "")

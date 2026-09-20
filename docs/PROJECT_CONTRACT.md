@@ -90,6 +90,11 @@ No money-making claim is established by this starter or its synthetic tests.
 Phase 1 contains six bounded implementation tasks. Later tasks are visible but
 not executable without a reviewed controller/backlog release. Funding/paid data,
 control-plane changes, secrets, risk increases and live deployment are owner gates.
-Initial merge policy: one owner Telegram approval per exact green reviewed PR.
-No unattended self-modification of the development control plane. Never deploy
-this controller automatically on every research-repository commit.
+Initial merge policy: autonomous-by-default — auto-merge when CI is green,
+Negar QA returns PASS, there are no unresolved findings, and the diff does not
+touch high-risk areas. Human approval is required only for live trading, broker
+connectivity, secrets/credentials, new paid spend, destructive ops, production
+deploy, security/permission or branch-protection changes, and irreversible data
+changes. No unattended self-modification of the development control plane
+without that human gate. Never deploy this controller automatically on every
+research-repository commit.

@@ -153,6 +153,22 @@ class GitHub:
         return row["html_url"]
 
 
+class NullTelegram:
+    """Local/optional Telegram: status still written to disk; no network commands."""
+
+    def preflight(self):
+        return {"id": 0, "username": "local-optional"}
+
+    def updates(self, offset):
+        return []
+
+    def send(self, chat_id, text, buttons=None):
+        return {"message_id": 0}
+
+    def answer(self, callback_id):
+        return True
+
+
 class Telegram:
     def __init__(self, token):
         if not re.fullmatch(r"[0-9]+:[A-Za-z0-9_-]+", token):

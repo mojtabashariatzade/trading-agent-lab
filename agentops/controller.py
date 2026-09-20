@@ -6,7 +6,14 @@ from pathlib import Path
 import time
 import uuid
 
-from .policy import authenticate_update, parse_review, pr_number, valid_pr, validate_changes
+from .policy import (
+    approval_required_reasons,
+    authenticate_update,
+    parse_review,
+    pr_number,
+    valid_pr,
+    validate_changes,
+)
 from .providers import ProviderError
 from .research import (
     approve_artifact,
@@ -59,7 +66,13 @@ class Controller:
             if not store.task(spec["id"]):
                 store.save({"id": spec["id"], "state": "PENDING", "attempt": 0, "phase": spec["phase"]})
         if store.get("paused") is None:
-            store.set("paused", True)
+            can_auto = (
+                settings.autonomous_default
+                and settings.allow_runs
+                and settings.spend_limit_confirmed
+                and settings.protection_confirmed
+            )
+            store.set("paused", not can_auto)
 
     def day(self):
         return datetime.fromtimestamp(self.clock(), timezone.utc).date().isoformat()
@@ -257,9 +270,15 @@ class Controller:
                 "Use PASS only with no blockers. The controller independently verifies CI and file paths; you cannot approve a merge.")
 
     def launch(self, task, role):
+        if self.clock() < float(task.get("backoff_until") or 0):
+            return
         profile = worker_profile(role)
         self.ready_to_run()
-        agent_id = "bc-" + str(uuid.uuid5(uuid.NAMESPACE_URL, f"{self.cfg.repo_url}/{task['id']}/{task['attempt']}/{role}"))
+        stuck = int(task.get("stuck_retries", 0))
+        agent_id = "bc-" + str(uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"{self.cfg.repo_url}/{task['id']}/{task['attempt']}/{role}/sr{stuck}",
+        ))
         if not self.db.reserve(agent_id, self.day(), self.cfg.max_daily_launches):
             self.event(task, "DAILY_LAUNCH_LIMIT", "Waiting for next UTC day. This is a count limit, NOT a monetary cap.")
             return
@@ -268,8 +287,123 @@ class Controller:
         ref = task["head_sha"] if role == "qa" else task["base_sha"]
         run_id = self.cursor.create(agent_id, f"{profile.name_en} | {role.upper()} {task['id']} attempt {task['attempt']}", self.cfg.repo_url, ref, self.prompt(task, role), review=role == "qa", model=self.cfg.model)
         task.update(run_id=run_id, state="REVIEWING" if role == "qa" else "DEVELOPING")
+        self.touch_progress(task, f"{task['state']}:{run_id}:RUNNING")
         self.db.save(task)
         self.event(task, task["state"], f"https://cursor.com/agents/{agent_id}")
+
+    def touch_progress(self, task: dict, fingerprint: str) -> None:
+        """Record progress so the stuck watchdog does not false-trigger."""
+        if task.get("progress_fingerprint") == fingerprint:
+            return
+        task["progress_fingerprint"] = fingerprint
+        task["last_progress_at"] = self.clock()
+        self.db.save(task)
+
+    def terminate_worker(self, task: dict) -> None:
+        agent_id = task.get("agent_id")
+        run_id = task.get("run_id")
+        if agent_id and run_id:
+            try:
+                self.cursor.cancel(agent_id, run_id)
+            except ProviderError:
+                pass
+
+    def recover_or_block(self, task: dict, reason: str) -> None:
+        """Auto-restart stuck/crashed workers up to max_stuck_retries; then BLOCK and continue queue."""
+        self.terminate_worker(task)
+        retries = int(task.get("stuck_retries", 0)) + 1
+        reason = str(reason)[:1000]
+        role = task.get("role") or "dev"
+        preserved = {
+            "id": task["id"],
+            "attempt": task.get("attempt", 0),
+            "phase": task.get("phase", 1),
+            "stuck_retries": retries,
+            "last_error": reason,
+            "last_stuck_at": self.clock(),
+            "feedback": reason,
+        }
+        for key in ("issue", "pr", "head_sha", "base_sha", "ci_url", "qa"):
+            if key in task:
+                preserved[key] = task[key]
+        if retries > self.cfg.max_stuck_retries:
+            preserved.update(state="BLOCKED", retryable=False, blocked_at=self.clock())
+            self.db.save(preserved)
+            self.event(
+                preserved,
+                "BLOCKED",
+                f"Stuck/crash retries exhausted ({self.cfg.max_stuck_retries}): {reason}",
+            )
+            return
+        backoff = self.cfg.stuck_backoff_seconds * retries
+        preserved["backoff_until"] = self.clock() + backoff
+        if role == "qa" or task.get("state") in {"REVIEWING", "LAUNCHING_QA"}:
+            preserved.update(state="LAUNCHING_QA", role="qa", launch_at=None, run_id=None, agent_id=None)
+        else:
+            preserved.update(state="LAUNCHING_DEV", role="dev", launch_at=None, run_id=None, agent_id=None)
+        self.touch_progress(preserved, f"restart:{retries}:{preserved['state']}")
+        self.db.save(preserved)
+        self.event(
+            preserved,
+            "STUCK_RESTART",
+            f"Automatic restart {retries}/{self.cfg.max_stuck_retries} after: {reason}; backoff {backoff}s",
+        )
+
+    def watch_stuck_workers(self) -> None:
+        """No human approval: if no progress for stuck_timeout, terminate and auto-restart."""
+        if self.db.get("paused", True):
+            return
+        now = self.clock()
+        timeout = self.cfg.stuck_timeout_seconds
+        for task in self.db.tasks():
+            state = task.get("state")
+            if state not in {"DEVELOPING", "REVIEWING", "LAUNCHING_DEV", "LAUNCHING_QA"}:
+                continue
+            if now < float(task.get("backoff_until") or 0):
+                continue
+            last = float(task.get("last_progress_at") or task.get("launch_at") or now)
+            if now - last < timeout:
+                continue
+            self.recover_or_block(
+                task,
+                f"STUCK: no worker progress for {int(now - last)}s "
+                f"(timeout {timeout}s) in state {state}",
+            )
+        for task in self.db.research_tasks():
+            state = task.get("state")
+            if state not in {ResearchState.LAUNCHING.value, ResearchState.RUNNING.value}:
+                continue
+            if now < float(task.get("backoff_until") or 0):
+                continue
+            last = float(task.get("last_progress_at") or task.get("launch_at") or now)
+            if now - last < timeout:
+                continue
+            self.terminate_worker(task)
+            retries = int(task.get("stuck_retries", 0)) + 1
+            reason = f"STUCK research: no progress for {int(now - last)}s in {state}"
+            if retries > self.cfg.max_stuck_retries:
+                task.update(
+                    state=ResearchState.BLOCKED.value,
+                    stuck_retries=retries,
+                    last_error=reason,
+                    blocker=reason[:1000],
+                )
+                self.db.save_research(task)
+                self.event(task, "RESEARCH_BLOCKED", reason)
+                continue
+            task.update(
+                state=ResearchState.PENDING.value,
+                stuck_retries=retries,
+                last_error=reason,
+                backoff_until=now + self.cfg.stuck_backoff_seconds * retries,
+                run_id=None,
+                agent_id=None,
+                launch_at=None,
+                last_progress_at=now,
+                progress_fingerprint=f"research-restart:{retries}",
+            )
+            self.db.save_research(task)
+            self.event(task, "STUCK_RESTART", f"Research auto-restart {retries}/{self.cfg.max_stuck_retries}")
 
     def launch_research(self, task: dict) -> None:
         """Launch an independent research worker. Coding launch() cannot do this."""
@@ -444,10 +578,37 @@ class Controller:
         result, _ = self.gh.ci(sha)
         if result != "PASS" or task.get("qa", {}).get("verdict") != "PASS":
             raise ValueError("Fresh successful CI and independent review are required")
+        findings = task.get("qa", {}).get("blocking_findings") or []
+        if findings:
+            raise ValueError("Unresolved review findings block merge")
         task.update(state="MERGING", approved_sha=sha, approved_at=self.clock())
         self.db.save(task)
         self.gh.merge(task["pr"], sha)
         self.reconcile_merge(task)
+
+    def maybe_auto_merge(self, task):
+        """Merge when CI+Negar PASS and the diff is outside human-approval gates."""
+        reasons = list(task.get("approval_reasons") or [])
+        if not reasons:
+            reasons = approval_required_reasons(self.gh.files(task["pr"]))
+            task["approval_reasons"] = reasons
+            self.db.save(task)
+        if reasons or not self.cfg.auto_merge_safe:
+            buttons = [[{"text": APPROVE, "callback_data": f"a:{task['id']}:{task['head_sha']}"}]]
+            detail = (
+                f"Human approval required; CI+QA PASS\n{LINK}: {self.cfg.repo_url}/pull/{task['pr']}\n"
+                f"{DETAIL}: exact SHA {task['head_sha']}; reasons: " + "; ".join(reasons[:8])
+            )
+            self.event(task, "WAITING_APPROVAL", detail, buttons)
+            return False
+        self.event(
+            task,
+            "AUTO_MERGE",
+            f"CI green + Negar PASS; safe auto-merge\n{LINK}: {self.cfg.repo_url}/pull/{task['pr']}\n"
+            f"{DETAIL}: exact SHA {task['head_sha']}",
+        )
+        self.approve(task["id"], task["head_sha"])
+        return True
 
     def reconcile_merge(self, task):
         pr = self.gh.pr(task["pr"])
@@ -482,6 +643,7 @@ class Controller:
             return
         if state in {"DEVELOPING", "REVIEWING"}:
             run = self.cursor.run(task["agent_id"], task["run_id"])
+            self.touch_progress(task, f"{state}:{task.get('run_id')}:{run.get('status')}")
             if run["status"] in {"CREATING", "RUNNING"}:
                 if self.clock() - task["launch_at"] > self.cfg.max_run_seconds:
                     task.update(state="CANCELLING")
@@ -490,7 +652,7 @@ class Controller:
                     self.event(task, "WATCHDOG", "Run exceeded time limit; cancellation requested, confirmation pending")
                 return
             if run["status"] != "FINISHED":
-                self.block(task, f"Cursor terminal/unknown status: {run['status']}", retryable=run["status"] in {"ERROR", "EXPIRED"})
+                self.recover_or_block(task, f"Cursor terminal/unknown status: {run['status']}")
                 return
             if state == "DEVELOPING":
                 urls = {b.get("prUrl") for b in run.get("git", {}).get("branches", []) if b.get("prUrl")}
@@ -513,14 +675,20 @@ class Controller:
                 if ci != "PASS":
                     self.block(task, "CI no longer passes after review", retryable=ci == "FAIL")
                     return
-                task.update(state="WAITING_APPROVAL", approval_until=self.clock() + self.cfg.approval_seconds, ci_url=url)
+                reasons = approval_required_reasons(self.gh.files(task["pr"]))
+                task.update(
+                    state="WAITING_APPROVAL",
+                    approval_until=self.clock() + self.cfg.approval_seconds,
+                    ci_url=url,
+                    approval_reasons=reasons,
+                )
                 self.db.save(task)
-                buttons = [[{"text": APPROVE, "callback_data": f"a:{task['id']}:{task['head_sha']}"}]]
-                self.event(task, "WAITING_APPROVAL", f"Independent review PASS; CI: {url}\n{LINK}: {self.cfg.repo_url}/pull/{task['pr']}\n{DETAIL}: exact SHA {task['head_sha']}", buttons)
+                self.maybe_auto_merge(task)
             return
         if state == "CI_WAIT":
             self.validate_pr(task)
             ci, url = self.gh.ci(task["head_sha"])
+            self.touch_progress(task, f"CI_WAIT:{ci}:{task.get('head_sha')}")
             if ci == "FAIL":
                 self.block(task, "CI failed: " + url, retryable=True)
             elif ci == "PASS" and not self.db.get("paused", True):
@@ -529,8 +697,15 @@ class Controller:
             elif self.clock() - task["ci_wait_at"] > 7200:
                 self.block(task, "CI not available within watchdog. Verify GitHub Actions setup; no green result assumed.")
             return
+        if state == "WAITING_APPROVAL":
+            if self.db.get("paused", True):
+                return
+            if task.get("approval_reasons") or not self.cfg.auto_merge_safe:
+                return
+            self.maybe_auto_merge(task)
 
     def tick(self):
+        self.watch_stuck_workers()
         for task in self.db.research_tasks():
             if task["state"] in {
                 ResearchState.PENDING.value,
@@ -538,6 +713,8 @@ class Controller:
                 ResearchState.RUNNING.value,
             }:
                 try:
+                    if self.clock() < float(task.get("backoff_until") or 0):
+                        continue
                     self.advance_research(task)
                 except ProviderError as exc:
                     self.event(task, "PROVIDER_UNAVAILABLE", str(exc))
@@ -548,8 +725,10 @@ class Controller:
                     self.event(task, "RESEARCH_BLOCKED", str(exc))
         tasks = self.db.tasks()
         for task in tasks:
-            if task["state"] not in {"PENDING", "BLOCKED", "DONE", "WAITING_APPROVAL"}:
+            if task["state"] not in {"PENDING", "BLOCKED", "DONE"}:
                 try:
+                    if self.clock() < float(task.get("backoff_until") or 0):
+                        continue
                     self.advance(task)
                 except ProviderError as exc:
                     self.event(task, "PROVIDER_UNAVAILABLE", str(exc))
@@ -576,8 +755,17 @@ class Controller:
         if any(t["state"] in {"DEVELOPING", "REVIEWING", "LAUNCHING_DEV", "LAUNCHING_QA", "CI_WAIT", "WAITING_APPROVAL", "MERGING", "CANCELLING"} for t in tasks):
             return  # one delivery at a time; no branch races or uncontrolled spending
         for task in tasks:
-            if task["state"] == "BLOCKED" and task.get("retryable") and task["attempt"] < self.cfg.max_attempts:
-                self.retry(task)
+            if task["state"] == "BLOCKED" and task.get("retryable"):
+                if task["attempt"] < self.cfg.max_attempts:
+                    self.retry(task)
+                    return
+                # Attempt counter exhausted while still retryable (e.g. worker ERROR).
+                # Do not stall the dependency chain — route through stuck recovery.
+                self.recover_or_block(
+                    task,
+                    "Attempt cap with retryable failure: "
+                    + str(task.get("feedback") or task.get("last_error") or "")[:500],
+                )
                 return
         # Prefer clearing required research before starting implementation.
         for task in self.db.research_tasks():

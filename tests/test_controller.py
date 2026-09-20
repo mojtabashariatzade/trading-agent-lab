@@ -10,7 +10,7 @@ from tests.fakes import *
 
 class ControllerTests(unittest.TestCase):
     def setUp(self):
-        self.cfg=Settings(REPO,'fake-gh','fake-cursor','1:fake',42,frozenset({42}),state_path=':memory:',allow_runs=True,spend_limit_confirmed=True,protection_confirmed=True)
+        self.cfg=Settings(REPO,'fake-gh','fake-cursor','1:fake',42,frozenset({42}),state_path=':memory:',allow_runs=True,spend_limit_confirmed=True,protection_confirmed=True,autonomous_default=False,auto_merge_safe=False)
         self.db=Store(':memory:'); self.gh=FakeGitHub(); self.cu=FakeCursor(); self.tg=FakeTelegram(); self.clock=Clock()
         self.c=Controller(self.cfg,self.db,self.gh,self.cu,self.tg,backlog(),clock=self.clock)
     def launch(self):
@@ -37,8 +37,20 @@ class ControllerTests(unittest.TestCase):
         t=self.ready(); self.assertEqual(t['state'],'WAITING_APPROVAL'); self.assertEqual(len(self.cu.created),2); self.assertFalse(self.cu.created[0]['review']); self.assertTrue(self.cu.created[1]['review']); self.assertEqual(self.cu.created[1]['ref'],HEAD); self.assertEqual(self.gh.merges,[])
     def test_owner_approval_exact_sha_merges(self):
         self.ready(); self.c.handle(update('/approve T001 '+HEAD,uid=2)); self.assertEqual(self.db.task('T001')['state'],'DONE'); self.assertEqual(self.gh.merges,[(7,HEAD)])
-    def test_no_auto_merge(self):
+    def test_no_auto_merge_when_disabled(self):
         self.ready(); self.c.tick(); self.c.tick(); self.assertEqual(self.gh.merges,[])
+    def test_auto_merge_safe_pr(self):
+        self.c.cfg=replace(self.cfg,auto_merge_safe=True)
+        t=self.ready(); self.assertEqual(t['state'],'DONE'); self.assertEqual(self.gh.merges,[(7,HEAD)])
+    def test_high_risk_requires_human_approval(self):
+        self.c.cfg=replace(self.cfg,auto_merge_safe=True)
+        self.gh.changes=[{'filename':'trading_lab/data/live_trading_hook.py','status':'added'}]
+        t=self.ready(); self.assertEqual(t['state'],'WAITING_APPROVAL'); self.assertEqual(self.gh.merges,[])
+        self.assertTrue(t.get('approval_reasons'))
+    def test_deletion_requires_human_approval(self):
+        self.c.cfg=replace(self.cfg,auto_merge_safe=True)
+        self.gh.changes=[{'filename':'trading_lab/data/bars.py','status':'removed'}]
+        t=self.ready(); self.assertEqual(t['state'],'WAITING_APPROVAL'); self.assertEqual(self.gh.merges,[])
     def test_phase_two_never_auto_starts(self):
         self.ready(); self.c.handle(update('/approve T001 '+HEAD,uid=2)); self.c.tick(); self.assertEqual(self.db.task('T002')['state'],'PENDING'); self.assertEqual(len(self.cu.created),2)
     def test_sha_change_rejects_approval(self):
@@ -58,18 +70,53 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.gh.merges,[])
     def test_approval_replay_no_second_merge(self):
         self.ready(); self.c.handle(update('/approve T001 '+HEAD,uid=2)); self.c.handle(update('/approve T001 '+HEAD,uid=3)); self.assertEqual(len(self.gh.merges),1)
-    def test_protected_diff_blocked(self):
+    def test_protected_diff_outside_scope_blocked(self):
         t=self.launch(); self.gh.changes=[{'filename':'.github/workflows/ci.yml','status':'modified'}]; self.cu.finish_dev(t['run_id']); self.c.tick(); self.assertEqual(self.db.task('T001')['state'],'BLOCKED'); self.assertEqual(len(self.cu.created),1)
     def test_finished_without_pr_is_not_done(self):
         t=self.launch(); self.cu.runs[t['run_id']]['status']='FINISHED'; self.c.tick(); self.assertEqual(self.db.task('T001')['state'],'BLOCKED')
-    def test_unknown_cursor_status_is_not_done(self):
-        t=self.launch(); self.cu.runs[t['run_id']]['status']='SOMETHING_NEW'; self.c.tick(); self.assertEqual(self.db.task('T001')['state'],'BLOCKED')
+    def test_unknown_cursor_status_auto_restarts(self):
+        t=self.launch(); self.cu.runs[t['run_id']]['status']='SOMETHING_NEW'; self.c.tick()
+        t=self.db.task('T001'); self.assertEqual(t['state'],'LAUNCHING_DEV'); self.assertEqual(t['stuck_retries'],1)
+        self.assertIn('SOMETHING_NEW', t.get('last_error',''))
+    def test_stuck_worker_restarts_without_approval(self):
+        t=self.launch(); t=self.db.task('T001')
+        t['last_progress_at']=self.clock.now-301; self.db.save(t)
+        self.c.cfg=replace(self.cfg,stuck_timeout_seconds=300,max_stuck_retries=3,stuck_backoff_seconds=15)
+        self.c.tick(); t=self.db.task('T001')
+        self.assertEqual(t['state'],'LAUNCHING_DEV'); self.assertEqual(t['stuck_retries'],1)
+        self.assertTrue(t.get('backoff_until',0) > self.clock.now)
+        self.assertTrue(self.cu.cancelled)
+        self.assertIn('STUCK', t.get('last_error',''))
+    def test_stuck_retries_exhaust_then_block_and_continue(self):
+        self.c.cfg=replace(self.cfg,stuck_timeout_seconds=300,max_stuck_retries=3,stuck_backoff_seconds=5)
+        self.launch()
+        for expected in (1, 2, 3):
+            t=self.db.task('T001')
+            t['last_progress_at']=self.clock.now-999
+            t['backoff_until']=0
+            self.db.save(t)
+            self.c.tick()
+            t=self.db.task('T001')
+            self.assertEqual(t['stuck_retries'], expected)
+            self.assertEqual(t['state'], 'LAUNCHING_DEV')
+            self.clock.now += 6
+            self.c.tick()
+        t=self.db.task('T001')
+        t['last_progress_at']=self.clock.now-999
+        t['backoff_until']=0
+        self.db.save(t)
+        self.c.tick()
+        t=self.db.task('T001')
+        self.assertEqual(t['state'], 'BLOCKED')
+        self.assertEqual(t['stuck_retries'], 4)
+        self.assertFalse(t.get('retryable', True))
     def test_wait_for_ci(self):
         t=self.launch(); self.cu.finish_dev(t['run_id']); self.gh.ci_result='WAIT'; self.c.tick(); self.c.tick(); self.assertEqual(len(self.cu.created),1)
     def test_ci_failure_queues_bounded_repair(self):
         t=self.launch(); self.cu.finish_dev(t['run_id']); self.c.tick(); self.gh.ci_result='FAIL'; self.c.tick(); self.assertEqual(self.db.task('T001')['state'],'PENDING'); self.assertEqual(self.gh.closed_prs,[7])
     def test_watchdog_requests_not_assumes_cancel(self):
-        t=self.launch(); self.clock.now+=5500; self.c.tick(); self.assertEqual(self.db.task('T001')['state'],'CANCELLING'); self.assertTrue(self.cu.cancelled)
+        self.c.cfg=replace(self.cfg,stuck_timeout_seconds=3600,max_run_seconds=300)
+        t=self.launch(); self.clock.now+=301; self.c.tick(); self.assertEqual(self.db.task('T001')['state'],'CANCELLING'); self.assertTrue(self.cu.cancelled)
         self.cu.runs[t['run_id']]['status']='CANCELLED'; self.c.tick(); self.assertEqual(self.db.task('T001')['state'],'BLOCKED')
     def test_pause_does_not_claim_cancellation(self):
         t=self.launch(); self.c.handle(update('/pause',uid=2)); self.c.tick(); self.assertEqual(self.db.task('T001')['state'],'DEVELOPING'); self.assertEqual(self.cu.cancelled,[])
