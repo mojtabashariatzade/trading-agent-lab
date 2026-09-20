@@ -18,6 +18,8 @@ class Settings:
     allow_runs: bool = False
     spend_limit_confirmed: bool = False
     protection_confirmed: bool = False
+    allow_public_repo: bool = False
+    agent_runtime: str = "cloud"
     max_daily_launches: int = 4
     max_attempts: int = 2
     max_phase: int = 1
@@ -67,6 +69,8 @@ class Settings:
             allow_runs=flag("ALLOW_AGENT_RUNS"),
             spend_limit_confirmed=flag("SPEND_LIMIT_CONFIRMED"),
             protection_confirmed=flag("REPOSITORY_PROTECTION_CONFIRMED"),
+            allow_public_repo=flag("ALLOW_PUBLIC_REPO"),
+            agent_runtime=os.environ.get("AGENT_RUNTIME", "cloud").strip().lower() or "cloud",
             max_daily_launches=int(os.environ.get("MAX_DAILY_LAUNCHES", "4")),
             max_attempts=int(os.environ.get("MAX_ATTEMPTS", "2")),
             max_run_seconds=int(os.environ.get("MAX_RUN_SECONDS", "5400")),

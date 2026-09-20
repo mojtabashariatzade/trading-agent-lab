@@ -7,8 +7,17 @@ import time
 
 from .config import Settings
 from .controller import Controller, STATUS, DETAIL
+from .local_runtime import LocalCursor
 from .providers import Cursor, GitHub, Telegram, ProviderError
 from .store import Store
+
+
+def _select_cursor(cfg: Settings, root: Path):
+    """Cloud-ready selector: local runtime when requested or Cursor key missing."""
+    runtime = cfg.agent_runtime
+    if runtime == "local" or not cfg.cursor_key or cfg.cursor_key in {"", "local", "fake-cursor"}:
+        return LocalCursor(root, github_repo=cfg.repo)
+    return Cursor(cfg.cursor_key)
 
 
 def _acquire_lock(lock_path: str):
@@ -36,9 +45,11 @@ def main():
     Path(cfg.state_path).parent.mkdir(parents=True, exist_ok=True)
     lock = _acquire_lock(cfg.state_path + ".lock")
     db = Store(cfg.state_path)
-    gh, cursor, tg = GitHub(cfg.repo, cfg.github_token), Cursor(cfg.cursor_key), Telegram(cfg.telegram_token)
-    tg.preflight()
     root = Path(__file__).resolve().parents[1]
+    gh = GitHub(cfg.repo, cfg.github_token)
+    cursor = _select_cursor(cfg, root)
+    tg = Telegram(cfg.telegram_token)
+    tg.preflight()
     backlog = json.loads((root / "planning/tasks.json").read_text(encoding="utf-8"))
     controller = Controller(cfg, db, gh, cursor, tg, backlog)
     db.notify(
@@ -56,12 +67,10 @@ def main():
             failures = 0
             time.sleep(cfg.poll_seconds)
         except ProviderError as exc:
-            # Redacted error strings only. Do not log raw HTTP exceptions or payloads.
             failures += 1
             logging.warning("Provider unavailable: %s", exc)
             if exc.provider == "Telegram":
                 db.set("paused", True)
-                # Still monitor/cancel an already-running job; do not hide its state.
                 try:
                     controller.tick()
                 except (RuntimeError, ValueError, KeyError):
