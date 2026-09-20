@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+*.key
+*.pem
+*.sqlite*
+**/__pycache__
+.venv
+data
+artifacts

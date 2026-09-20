@@ -1,0 +1,35 @@
+{
+  "mode": "OFFLINE_FAKE_PROVIDER_DEMO",
+  "external_calls": 0,
+  "paid_agents_started": 0,
+  "real_trades": 0,
+  "trace": [
+    {
+      "task": "T001",
+      "state": "PENDING"
+    },
+    {
+      "task": "T001",
+      "state": "DEVELOPING"
+    },
+    {
+      "task": "T001",
+      "state": "CI_WAIT"
+    },
+    {
+      "task": "T001",
+      "state": "REVIEWING"
+    },
+    {
+      "task": "T001",
+      "state": "WAITING_APPROVAL"
+    },
+    {
+      "task": "T001",
+      "state": "DONE"
+    }
+  ],
+  "merge_requests_in_fake_github": 1,
+  "notifications_in_fake_telegram": 7,
+  "phase_2_remains": "PENDING"
+}

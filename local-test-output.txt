@@ -1,0 +1,211 @@
+test_conflict_pass (test_contracts.ContractTests.test_conflict_pass) ... ok
+test_crossed_quote_rejected (test_contracts.ContractTests.test_crossed_quote_rejected) ... ok
+test_data_health_blocks (test_contracts.ContractTests.test_data_health_blocks) ... ok
+test_existing_position_blocks_entry (test_contracts.ContractTests.test_existing_position_blocks_entry) ... ok
+test_expiry_exclusive (test_contracts.ContractTests.test_expiry_exclusive) ... ok
+test_future_data_not_available (test_contracts.ContractTests.test_future_data_not_available) ... ok
+test_future_mutation_invariant (test_contracts.ContractTests.test_future_mutation_invariant) ... ok
+test_future_proposal_rejected (test_contracts.ContractTests.test_future_proposal_rejected) ... ok
+test_model_score_not_probability (test_contracts.ContractTests.test_model_score_not_probability) ... ok
+test_naive_time_rejected (test_contracts.ContractTests.test_naive_time_rejected) ... ok
+test_nan_price_rejected (test_contracts.ContractTests.test_nan_price_rejected) ... ok
+test_negative_price_rejected (test_contracts.ContractTests.test_negative_price_rejected) ... ok
+test_no_live_order_function (test_contracts.ContractTests.test_no_live_order_function) ... ok
+test_risk_can_veto (test_contracts.ContractTests.test_risk_can_veto) ... ok
+test_unknown_ev_no_fabrication (test_contracts.ContractTests.test_unknown_ev_no_fabrication) ... ok
+test_valid_choice (test_contracts.ContractTests.test_valid_choice) ... ok
+test_ambiguous_create_reuses_id (test_controller.ControllerTests.test_ambiguous_create_reuses_id) ... ok
+test_approval_replay_no_second_merge (test_controller.ControllerTests.test_approval_replay_no_second_merge) ... ok
+test_backlog_change_requires_migration (test_controller.ControllerTests.test_backlog_change_requires_migration) ... ok
+test_base_change_rejects_approval (test_controller.ControllerTests.test_base_change_rejects_approval) ... ok
+test_ci_failure_never_approved (test_controller.ControllerTests.test_ci_failure_never_approved) ... /mnt/data/trading-agent-team-v2/agentops/store.py:38: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a8a4b80>
+  return [json.loads(r[0]) for r in self.db.execute("SELECT data FROM tasks ORDER BY id")]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/mnt/data/trading-agent-team-v2/agentops/store.py:38: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a8a72e0>
+  return [json.loads(r[0]) for r in self.db.execute("SELECT data FROM tasks ORDER BY id")]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/mnt/data/trading-agent-team-v2/agentops/store.py:38: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a8a49a0>
+  return [json.loads(r[0]) for r in self.db.execute("SELECT data FROM tasks ORDER BY id")]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/mnt/data/trading-agent-team-v2/agentops/store.py:38: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a8a73d0>
+  return [json.loads(r[0]) for r in self.db.execute("SELECT data FROM tasks ORDER BY id")]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_ci_failure_queues_bounded_repair (test_controller.ControllerTests.test_ci_failure_queues_bounded_repair) ... ok
+test_duplicate_telegram_command_consumed_once (test_controller.ControllerTests.test_duplicate_telegram_command_consumed_once) ... ok
+test_expired_approval (test_controller.ControllerTests.test_expired_approval) ... ok
+test_finished_without_pr_is_not_done (test_controller.ControllerTests.test_finished_without_pr_is_not_done) ... ok
+test_flush_reports_from_persisted_events (test_controller.ControllerTests.test_flush_reports_from_persisted_events) ... ok
+test_launch_payload_no_service_secrets (test_controller.ControllerTests.test_launch_payload_no_service_secrets) ... ok
+test_natural_text_never_launches (test_controller.ControllerTests.test_natural_text_never_launches) ... ok
+test_no_auto_merge (test_controller.ControllerTests.test_no_auto_merge) ... ok
+test_no_paid_authorization (test_controller.ControllerTests.test_no_paid_authorization) ... ok
+test_no_second_launch_while_waiting_approval (test_controller.ControllerTests.test_no_second_launch_while_waiting_approval) ... ok
+test_owner_approval_exact_sha_merges (test_controller.ControllerTests.test_owner_approval_exact_sha_merges) ... ok
+test_owner_resume_launches_one (test_controller.ControllerTests.test_owner_resume_launches_one) ... ok
+test_pause_does_not_claim_cancellation (test_controller.ControllerTests.test_pause_does_not_claim_cancellation) ... ok
+test_phase_two_never_auto_starts (test_controller.ControllerTests.test_phase_two_never_auto_starts) ... ok
+test_progression_needs_ci_and_separate_review (test_controller.ControllerTests.test_progression_needs_ci_and_separate_review) ... ok
+test_protected_diff_blocked (test_controller.ControllerTests.test_protected_diff_blocked) ... ok
+test_provider_error_redacts_secret (test_controller.ControllerTests.test_provider_error_redacts_secret) ... ok
+test_public_repo_blocked (test_controller.ControllerTests.test_public_repo_blocked) ... ok
+test_repo_state_not_reusable_elsewhere (test_controller.ControllerTests.test_repo_state_not_reusable_elsewhere) ... ok
+test_sha_change_rejects_approval (test_controller.ControllerTests.test_sha_change_rejects_approval) ... ok
+test_starts_paused (test_controller.ControllerTests.test_starts_paused) ... ok
+test_stop_cancel_and_confirm (test_controller.ControllerTests.test_stop_cancel_and_confirm) ... ok
+test_unauthorized_resume_no_effect (test_controller.ControllerTests.test_unauthorized_resume_no_effect) ... ok
+test_unknown_cursor_status_is_not_done (test_controller.ControllerTests.test_unknown_cursor_status_is_not_done) ... ok
+test_unprotected_repo_blocked (test_controller.ControllerTests.test_unprotected_repo_blocked) ... ok
+test_wait_for_ci (test_controller.ControllerTests.test_wait_for_ci) ... ok
+test_watchdog_requests_not_assumes_cancel (test_controller.ControllerTests.test_watchdog_requests_not_assumes_cancel) ... ok
+test_allow_scoped_new_file (test_policy.PolicyTests.test_allow_scoped_new_file) ... ok
+test_anonymous_admin_not_authority (test_policy.PolicyTests.test_anonymous_admin_not_authority) ... ok
+test_bot_not_authority (test_policy.PolicyTests.test_bot_not_authority) ... ok
+test_callback_identity (test_policy.PolicyTests.test_callback_identity) ... ok
+test_channel_posts_not_authority (test_policy.PolicyTests.test_channel_posts_not_authority) ... ok
+test_controller_is_protected (test_policy.PolicyTests.test_controller_is_protected) ... ok
+test_deletion_rejected (test_policy.PolicyTests.test_deletion_rejected) ... ok
+test_draft_pr_rejected (test_policy.PolicyTests.test_draft_pr_rejected) ... ok
+test_empty_diff_rejected (test_policy.PolicyTests.test_empty_diff_rejected) ... ok
+test_existing_tests_protected (test_policy.PolicyTests.test_existing_tests_protected) ... ok
+test_foreign_pr_rejected (test_policy.PolicyTests.test_foreign_pr_rejected) ... ok
+test_fork_pr_rejected (test_policy.PolicyTests.test_fork_pr_rejected) ... ok
+test_old_and_future_messages (test_policy.PolicyTests.test_old_and_future_messages) ... ok
+test_owner_auth (test_policy.PolicyTests.test_owner_auth) ... ok
+test_path_escape_rejected (test_policy.PolicyTests.test_path_escape_rejected) ... ok
+test_plain_pass_is_not_evidence (test_policy.PolicyTests.test_plain_pass_is_not_evidence) ... ok
+test_rename_rejected (test_policy.PolicyTests.test_rename_rejected) ... ok
+test_review_cannot_pass_with_blockers (test_policy.PolicyTests.test_review_cannot_pass_with_blockers) ... ok
+test_review_exact_sha (test_policy.PolicyTests.test_review_exact_sha) ... ok
+test_review_requires_actual_command_field (test_policy.PolicyTests.test_review_requires_actual_command_field) ... ok
+test_scope_escape_rejected (test_policy.PolicyTests.test_scope_escape_rejected) ... ok
+test_secret_path_rejected (test_policy.PolicyTests.test_secret_path_rejected) ... ok
+test_valid_pr_number (test_policy.PolicyTests.test_valid_pr_number) ... ok
+test_workflow_is_protected (test_policy.PolicyTests.test_workflow_is_protected) ... ok
+test_wrong_chat (test_policy.PolicyTests.test_wrong_chat) ... ok
+test_wrong_user (test_policy.PolicyTests.test_wrong_user) ... ok
+test_ci_exact_workflow_run (test_providers.ProviderTests.test_ci_exact_workflow_run) ... ok
+test_ci_no_run_waits (test_providers.ProviderTests.test_ci_no_run_waits) ... ok
+test_ci_skipped_job_not_pass (test_providers.ProviderTests.test_ci_skipped_job_not_pass) ... ok
+test_cursor_conflict_recovers_existing_run (test_providers.ProviderTests.test_cursor_conflict_recovers_existing_run) ... ok
+test_cursor_v1_payload (test_providers.ProviderTests.test_cursor_v1_payload) ... ok
+test_http_rejects_arbitrary_url (test_providers.ProviderTests.test_http_rejects_arbitrary_url) ... ok
+test_merge_binds_sha (test_providers.ProviderTests.test_merge_binds_sha) ... /usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a8a73d0>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a8a49a0>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a8a72e0>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a8a4b80>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48e980>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48ee30>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48f1f0>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a8a6020>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48ec50>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48ef20>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48f010>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48f100>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48f2e0>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48eb60>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48f3d0>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48f4c0>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48f5b0>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48f6a0>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48f790>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48f970>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48f880>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48fa60>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48fb50>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48fc40>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48fd30>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48fe20>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/usr/lib/python3.13/urllib/request.py:414: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7f1e6a48ff10>
+  for meth in dir(handler):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_newer_ci_failure_overrides_old_success (test_providers.ProviderTests.test_newer_ci_failure_overrides_old_success) ... ok
+test_review_no_pr (test_providers.ProviderTests.test_review_no_pr) ... ok
+test_empty_owner_rejected (test_settings.SettingsTests.test_empty_owner_rejected) ... ok
+test_excessive_launch_cap_rejected (test_settings.SettingsTests.test_excessive_launch_cap_rejected) ... ok
+test_launch_is_off_by_default (test_settings.SettingsTests.test_launch_is_off_by_default) ... ok
+test_phase_escalation_not_an_environment_switch (test_settings.SettingsTests.test_phase_escalation_not_an_environment_switch) ... ok
+test_repository_path_injection_rejected (test_settings.SettingsTests.test_repository_path_injection_rejected) ... ok
+test_unbounded_retries_rejected (test_settings.SettingsTests.test_unbounded_retries_rejected) ... ok
+test_cap_resets_on_new_day (test_store.StoreTests.test_cap_resets_on_new_day) ... ok
+test_launch_cap (test_store.StoreTests.test_launch_cap) ... ok
+test_launch_reservation_idempotent (test_store.StoreTests.test_launch_reservation_idempotent) ... ok
+test_outbox_dedup (test_store.StoreTests.test_outbox_dedup) ... ok
+test_state_survives_restart (test_store.StoreTests.test_state_survives_restart) ... ok
+test_update_replay (test_store.StoreTests.test_update_replay) ... ok
+test_advisory_launch_fails_before_paid_call_or_reservation (test_team.NamedTeamTests.test_advisory_launch_fails_before_paid_call_or_reservation) ... ok
+test_cloud_title_uses_name_without_changing_role_id (test_team.NamedTeamTests.test_cloud_title_uses_name_without_changing_role_id) ... ok
+test_controller_event_identifies_arman (test_team.NamedTeamTests.test_controller_event_identifies_arman) ... ok
+test_developer_prompt_has_kian_and_research_criteria (test_team.NamedTeamTests.test_developer_prompt_has_kian_and_research_criteria) ... ok
+test_eight_unique_profiles (test_team.NamedTeamTests.test_eight_unique_profiles) ... ok
+test_event_is_signed_by_raha_and_identifies_actual_worker (test_team.NamedTeamTests.test_event_is_signed_by_raha_and_identifies_actual_worker) ... ok
+test_every_role_document_exists (test_team.NamedTeamTests.test_every_role_document_exists) ... ok
+test_names_do_not_change_backlog_or_phase_gate (test_team.NamedTeamTests.test_names_do_not_change_backlog_or_phase_gate) ... ok
+test_only_developer_and_qa_are_cloud_workers (test_team.NamedTeamTests.test_only_developer_and_qa_are_cloud_workers) ... ok
+test_owner_team_command_does_not_launch_or_unpause (test_team.NamedTeamTests.test_owner_team_command_does_not_launch_or_unpause) ... ok
+test_qa_prompt_is_named_and_remains_independent (test_team.NamedTeamTests.test_qa_prompt_is_named_and_remains_independent) ... ok
+test_registry_is_read_only (test_team.NamedTeamTests.test_registry_is_read_only) ... ok
+test_research_instruction_has_no_fake_independence (test_team.NamedTeamTests.test_research_instruction_has_no_fake_independence) ... ok
+test_research_modes_are_honest (test_team.NamedTeamTests.test_research_modes_are_honest) ... ok
+test_roster_lines_are_rtl_and_fit_telegram (test_team.NamedTeamTests.test_roster_lines_are_rtl_and_fit_telegram) ... ok
+test_status_report_has_raha_signature (test_team.NamedTeamTests.test_status_report_has_raha_signature) ... ok
+test_unauthorized_team_command_is_not_answered (test_team.NamedTeamTests.test_unauthorized_team_command_is_not_answered) ... ok
+test_unknown_worker_identity_rejected (test_team.NamedTeamTests.test_unknown_worker_identity_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 113 tests in 0.096s
+
+OK

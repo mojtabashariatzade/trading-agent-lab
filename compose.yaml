@@ -1,0 +1,35 @@
+services:
+  controller:
+    build: .
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    environment:
+      GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:?Set owner/private-repository}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:?Set a repository-scoped operator token}
+      CURSOR_API_KEY: ${CURSOR_API_KEY:?Set in hosting secret storage}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set in hosting secret storage}
+      TELEGRAM_CONTROL_CHAT_ID: ${TELEGRAM_CONTROL_CHAT_ID:?Numeric private or group chat ID}
+      TELEGRAM_OWNER_IDS: ${TELEGRAM_OWNER_IDS:?Comma-separated numeric Telegram user IDs}
+      TELEGRAM_REPORT_CHAT_ID: ${TELEGRAM_REPORT_CHAT_ID:-}
+      ALLOW_AGENT_RUNS: ${ALLOW_AGENT_RUNS:-false}
+      SPEND_LIMIT_CONFIRMED: ${SPEND_LIMIT_CONFIRMED:-false}
+      REPOSITORY_PROTECTION_CONFIRMED: ${REPOSITORY_PROTECTION_CONFIRMED:-false}
+      CURSOR_MODEL: ${CURSOR_MODEL:-}
+      MAX_DAILY_LAUNCHES: ${MAX_DAILY_LAUNCHES:-4}
+      MAX_ATTEMPTS: ${MAX_ATTEMPTS:-2}
+      MAX_RUN_SECONDS: ${MAX_RUN_SECONDS:-5400}
+      POLL_SECONDS: ${POLL_SECONDS:-30}
+      STATE_PATH: /state/team.sqlite3
+    volumes:
+      - team-state:/state
+    healthcheck:
+      test: [CMD, python, -c, "import sqlite3,time; c=sqlite3.connect('/state/team.sqlite3'); r=c.execute(\"SELECT value FROM kv WHERE key='heartbeat_at'\").fetchone(); assert r and time.time()-float(r[0])<900"]
+      interval: 120s
+      timeout: 5s
+      retries: 3
+volumes:
+  team-state:

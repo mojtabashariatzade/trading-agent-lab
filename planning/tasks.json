@@ -1,0 +1,244 @@
+[
+  {
+    "id": "T001",
+    "title": "Causal M15 bars, ATR and feature contracts",
+    "description": "Implement pure functions consuming supplied bid/ask observations. Build half-open UTC M15 bars; never silently fill missing intervals. ATR14 Wilder uses only closed bars. No network downloader in this task.",
+    "acceptance": [
+      "Boundary quote at 10:15 belongs only to the next interval.",
+      "Future-data mutation does not change a past output.",
+      "Naive timestamps, crossed prices and invalid ATR are rejected.",
+      "Gaps and tick counts remain explicit; no invented volume."
+    ],
+    "allowed_prefixes": [
+      "trading_lab/data/",
+      "trading_lab/features/",
+      "tests/added/",
+      "docs/research/"
+    ],
+    "depends_on": [],
+    "phase": 1
+  },
+  {
+    "id": "T002",
+    "title": "Event-driven research execution kernel",
+    "description": "Implement bid/ask entry and exits, TP, SL, clock timeout, costs and single-position account. This is a simulator only, with no live-order functions.",
+    "acceptance": [
+      "Buy uses ask entry and bid exit; sell is symmetric.",
+      "Slippage and commission are explicit; observed spread is not deducted twice.",
+      "SL gaps can exceed -1R; TIMEOUT yields realized P&L.",
+      "M1 ambiguous TP/SL is flagged and conservative; missing tail is censored.",
+      "Use one execution kernel for hypothetical outcomes and account replay."
+    ],
+    "allowed_prefixes": [
+      "trading_lab/execution/",
+      "tests/added/",
+      "docs/research/"
+    ],
+    "depends_on": [
+      "T001"
+    ],
+    "phase": 1
+  },
+  {
+    "id": "T003",
+    "title": "Three contrasting strategy experts",
+    "description": "Build EMA trend, Bollinger re-entry mean reversion, and a defined session-range breakout. Each has a documented strategy card. No profitability claims.",
+    "acceptance": [
+      "Pure versioned strategy interface; no order submission.",
+      "Use closed bars and explicit session time zones including DST.",
+      "Provide shared-exit and native-exit configurations as distinct leagues.",
+      "Add tests for expiry, no-signal and reproducibility."
+    ],
+    "allowed_prefixes": [
+      "trading_lab/strategies/",
+      "tests/added/",
+      "docs/research/"
+    ],
+    "depends_on": [
+      "T002"
+    ],
+    "phase": 1
+  },
+  {
+    "id": "T004",
+    "title": "Small end-to-end research tournament",
+    "description": "Connect three experts to the replay kernel and rule-based Decision Core. Save auditable proposals, decisions, trades and run manifests. Only local fixtures initially.",
+    "acceptance": [
+      "Fixture results are labelled SYNTHETIC_TEST_ONLY and cannot populate a real-performance leaderboard.",
+      "Single-account restrictions are respected, not summed overlapping label returns.",
+      "No data means DATA_REQUIRED, not invented data or a winner.",
+      "PASS and risk veto are first-class outcomes."
+    ],
+    "allowed_prefixes": [
+      "trading_lab/tournament/",
+      "trading_lab/research/",
+      "tests/added/",
+      "docs/research/"
+    ],
+    "depends_on": [
+      "T003"
+    ],
+    "phase": 1
+  },
+  {
+    "id": "T005",
+    "title": "Fundamental point-in-time schema and source register",
+    "description": "Implement release records and as-of joins, with source registry entries for Forex Factory, ONS, BoE, BoJ, Statistics Bureau Japan, ESRI, MOF, Fed, BLS, BEA, ALFRED and licensed forecast providers. No purchase or credential requirement in this task.",
+    "acceptance": [
+      "Separate scheduled/published/observed/available times and event period.",
+      "Separate first actual, pre-release forecast, previous as-known and revision.",
+      "Reject use of daily/unknown precision timestamps for intraday same-day trading.",
+      "Tag provider history/license/coverage UNVERIFIED until sampled.",
+      "Forecast missing never silently becomes zero."
+    ],
+    "allowed_prefixes": [
+      "trading_lab/fundamentals/",
+      "tests/added/",
+      "docs/research/"
+    ],
+    "depends_on": [
+      "T004"
+    ],
+    "phase": 1
+  },
+  {
+    "id": "T006",
+    "title": "Historical-data sampling readiness",
+    "description": "Implement a manifest/checksum-based local import contract and document a Dukascopy sampling adapter. Unauthenticated legal samples may be inspected only if current provider terms allow; do not download full history yet.",
+    "acceptance": [
+      "Record exact provider, version, actual coverage, gaps and checksum.",
+      "Unit fixtures and real observations are stored separately.",
+      "Sampling report explicitly distinguishes downloaded vs unverified.",
+      "No revised macro values substituted for original releases."
+    ],
+    "allowed_prefixes": [
+      "trading_lab/data/",
+      "trading_lab/research/",
+      "tests/added/",
+      "docs/research/"
+    ],
+    "depends_on": [
+      "T005"
+    ],
+    "phase": 1
+  },
+  {
+    "id": "T007",
+    "title": "Real historical data pipeline and archive coverage",
+    "description": "After phase and provider authorization, build resumable price-history ingestion from 2016 through actual data_end_utc and a separately tracked macro release archive. Use secure collector deployment for licensed feeds, never inject paid-data credentials into coding agents.",
+    "acceptance": [
+      "Real data manifests record provenance, permissions, checksum, timezone, available_at and actual coverage.",
+      "No fabricated gaps, forecasts, revised-as-original releases or claimed archive coverage.",
+      "Only license-approved sources and bounded authorized downloads; missing feed access is BLOCKED.",
+      "Raw, processed, test-fixture and holdout storage are separate; transformations and end time are reproducible."
+    ],
+    "allowed_prefixes": [
+      "trading_lab/data/",
+      "trading_lab/fundamentals/",
+      "trading_lab/research/",
+      "tests/added/",
+      "docs/research/"
+    ],
+    "depends_on": [
+      "T006"
+    ],
+    "phase": 2
+  },
+  {
+    "id": "T008",
+    "title": "Fifteen specialist cards and sources",
+    "description": "Finalize 15 documented expert families and licensing/implementation rules; identify overlapping families and horizon eligibility. Include technical, currency-strength, macro surprise and central-bank text experts.",
+    "acceptance": [
+      "All 15 start UNTESTED.",
+      "Each card defines entry, exit, invalidation, expiry, required data and bounded parameter search.",
+      "News experts remain ineligible without point-in-time data."
+    ],
+    "allowed_prefixes": [
+      "docs/research/",
+      "trading_lab/strategies/",
+      "tests/added/"
+    ],
+    "depends_on": [
+      "T007"
+    ],
+    "phase": 2
+  },
+  {
+    "id": "T009",
+    "title": "Purged nested walk-forward and experiment register",
+    "description": "Implement chronological specialist selection and out-of-sample meta-training. Include label horizon overlap removal, cost stress, multiple tests and frozen holdout registry.",
+    "acceptance": [
+      "2026 is partial and only untouched periods may be called holdout.",
+      "All tuning/selection steps sit inside appropriate folds.",
+      "Changing future data cannot alter historical features."
+    ],
+    "allowed_prefixes": [
+      "trading_lab/validation/",
+      "trading_lab/research/",
+      "tests/added/",
+      "docs/research/"
+    ],
+    "depends_on": [
+      "T008"
+    ],
+    "phase": 2
+  },
+  {
+    "id": "T010",
+    "title": "Supervised specialist filters and Decision Core tournament",
+    "description": "Compare simple selection, tree filters and a small neural selector. Add only approved dependencies in a separate manual change first.",
+    "acceptance": [
+      "Use temporal out-of-sample specialist predictions.",
+      "Compare against no-trade and best preselected single specialist.",
+      "Never select a model on final test performance."
+    ],
+    "allowed_prefixes": [
+      "trading_lab/models/",
+      "trading_lab/tournament/",
+      "tests/added/",
+      "docs/research/"
+    ],
+    "depends_on": [
+      "T009"
+    ],
+    "phase": 3
+  },
+  {
+    "id": "T011",
+    "title": "News and bio-inspired controlled experiments",
+    "description": "Define immutable data/model versions, point-in-time NLP inputs, ablations, random-network controls and bounded compute. Fly-inspired models are optional candidates, not assumed winners.",
+    "acceptance": [
+      "No direct news-to-order authority.",
+      "No future model memory presented as clean historical evidence.",
+      "Complex model must add measured value under identical execution."
+    ],
+    "allowed_prefixes": [
+      "trading_lab/experiments/",
+      "tests/added/",
+      "docs/research/"
+    ],
+    "depends_on": [
+      "T010"
+    ],
+    "phase": 3
+  },
+  {
+    "id": "T012",
+    "title": "Shadow and paper deployment design",
+    "description": "After an explicit reviewed phase upgrade, specify observable shadow and demo execution with independent risk controls. There is deliberately no automatic Live milestone.",
+    "acceptance": [
+      "No broker keys in coding agents.",
+      "Human-controlled promotion and rollback.",
+      "Paper fills are not proof of live fills.",
+      "Live activation and risk increases are excluded."
+    ],
+    "allowed_prefixes": [
+      "docs/research/",
+      "tests/added/"
+    ],
+    "depends_on": [
+      "T011"
+    ],
+    "phase": 4
+  }
+]
