@@ -134,8 +134,8 @@ class Controller:
         if not (self.cfg.allow_runs and self.cfg.spend_limit_confirmed and self.cfg.protection_confirmed):
             raise RuntimeError("Launch disabled: configure explicit launch authorization, provider spend cap and repository protections")
         repo = self.gh.repository()
-        if not repo.get("private"):
-            raise RuntimeError("A private repository is required")
+        if not repo.get("private") and not self.cfg.allow_public_repo:
+            raise RuntimeError("A private repository is required (or set ALLOW_PUBLIC_REPO for local/public labs)")
         branch = self.gh.branch(self.cfg.branch)
         if not branch.get("protected"):
             raise RuntimeError("Default branch must be protected before agents can start")
