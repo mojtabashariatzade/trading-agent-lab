@@ -203,7 +203,7 @@ if __name__ == "__main__":
             encoding="utf-8",
         )
         for path in work:
-            self._git(["add", path])
+            self._git(["add", "-f", path] if path.startswith("trading_lab/data/") else ["add", path])
         self._git(["-c", "user.name=Kian Local", "-c", "user.email=kian-local@users.noreply.github.com",
                    "commit", "-m", "feat(data): local Kian M15 bar helpers (no Cursor Cloud)"])
         self._git(["push", "-u", "origin", branch])

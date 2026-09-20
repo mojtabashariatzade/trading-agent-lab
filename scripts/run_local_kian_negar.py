@@ -55,7 +55,9 @@ def main() -> int:
     c = Controller(cfg, db, gh, cursor, tg, backlog)
 
     print(json.dumps({"event": "resume", "runtime": "local", "task": "T001"}))
-    c.handle(update("/resume", uid=1))
+    now = int(time.time())
+    c.handle(update("/resume", uid=int(now), date=now))
+    print(json.dumps({"paused_after_resume": c.db.get("paused")}))
     # Drive until WAITING_APPROVAL or BLOCKED or timeout
     deadline = time.time() + 900
     last = ""
