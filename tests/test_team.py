@@ -23,6 +23,7 @@ class NamedTeamTests(unittest.TestCase):
             REPO, 'fake-gh', 'fake-cursor', '1:fake', 42, frozenset({42}),
             state_path=':memory:', allow_runs=True,
             spend_limit_confirmed=True, protection_confirmed=True,
+            autonomous_default=False, auto_merge_safe=False,
         )
         self.db = Store(':memory:')
         self.gh, self.cu, self.tg = FakeGitHub(), FakeCursor(), FakeTelegram()
