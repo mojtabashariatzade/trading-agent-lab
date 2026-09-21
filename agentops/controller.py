@@ -349,6 +349,16 @@ class Controller:
         if state in {"LAUNCHING_DEV", "LAUNCHING_QA"}:
             if str(task.get("progress_fingerprint") or "").startswith("daily_limit:"):
                 return False
+            if not task.get("run_id"):
+                started = float(
+                    task.get("launch_at")
+                    or task.get("state_entered_at")
+                    or task.get("last_progress_at")
+                    or 0
+                )
+                # Stale launch shells must not permanently consume a parallel slot.
+                if started and self.clock() - started > 45:
+                    return False
             return True
         return False
 
