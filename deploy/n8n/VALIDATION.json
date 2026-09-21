@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "source_baseline": "d2615d00ca83257d960d1b04d73589c65b19ac50",
+  "preparation_state": "PREPARED_NOT_DEPLOYED",
+  "local_validation": {
+    "command": "python -m unittest discover -s tests/added -v",
+    "tests_run": 33,
+    "passed": 33,
+    "failed": 0,
+    "scope": "New n8n kit only; fake external APIs and real loopback HTTP test",
+    "compileall": "PASS",
+    "shell_syntax": "PASS"
+  },
+  "not_run": ["Docker image pulls", "Docker Compose runtime", "n8n workflow import/publish execution", "SSH deployment", "real Telegram/GitHub integration", "backup/restore drill", "AI worker integration"],
+  "capabilities_not_claimed": ["Independent AI agents", "Continuous coding", "Live trading", "Server provisioned"]
+}
