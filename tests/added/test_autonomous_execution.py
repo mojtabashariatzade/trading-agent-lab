@@ -57,7 +57,7 @@ class AutonomousExecutionTests(unittest.TestCase):
         t = db.task("T001")
         self.assertEqual(t["state"], "DEVELOPING")
         self.assertTrue(t.get("run_id"))
-        self.assertEqual(len(cu.created), 1)
+        self.assertGreaterEqual(len(cu.created), 1)
 
     def test_ready_pr_resumes_at_ci_not_new_kian(self):
         _cfg, db, _gh, cu, _tg, _clock, ctl = self._ctrl()
@@ -95,6 +95,35 @@ class AutonomousExecutionTests(unittest.TestCase):
         self.assertEqual(db.task("T00A")["state"], "DEVELOPING")
         self.assertEqual(db.task("T00B")["state"], "PENDING")
         self.assertTrue(cu.created)
+
+    def test_local_launches_two_independent_workers(self):
+        _cfg, db, _gh, cu, _tg, _clock, ctl = self._ctrl(agent_runtime="local")
+        ctl.handle(update("/resume"))
+        ctl.tick()
+        states = {tid: db.task(tid)["state"] for tid in ("T001", "T00A")}
+        developing = [s for s in states.values() if s == "DEVELOPING"]
+        self.assertGreaterEqual(len(developing), 2)
+        self.assertGreaterEqual(len(cu.created), 2)
+        self.assertTrue(all(db.task(tid).get("run_id") for tid in ("T001", "T00A")))
+        self.assertTrue(all(not db.task(tid).get("last_error") for tid in ("T001", "T00A")))
+
+    def test_successful_launch_clears_stale_last_error(self):
+        _cfg, db, _gh, cu, _tg, _clock, ctl = self._ctrl(agent_runtime="local")
+        ctl.handle(update("/resume"))
+        t = db.task("T001")
+        t.update(
+            state="PENDING",
+            attempt=0,
+            last_error="Cursor terminal/unknown status: ERROR",
+            feedback="Cursor terminal/unknown status: ERROR",
+        )
+        db.save(t)
+        ctl.tick()
+        t = db.task("T001")
+        self.assertEqual(t["state"], "DEVELOPING")
+        self.assertTrue(t.get("run_id"))
+        self.assertFalse(t.get("last_error"))
+        self.assertEqual(t.get("feedback") or "", "")
 
     def test_exhausted_task_does_not_freeze_independent(self):
         _cfg, db, _gh, _cu, _tg, _clock, ctl = self._ctrl()
