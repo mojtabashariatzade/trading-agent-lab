@@ -3,7 +3,7 @@ import unittest
 from agentops.config import Settings
 from agentops.controller import Controller
 from agentops.store import Store
-from tests.fakes import FakeCursor, FakeGitHub, FakeTelegram, REPO, backlog, update
+from tests.fakes import Clock, FakeCursor, FakeGitHub, FakeTelegram, REPO, backlog, update
 
 
 class BridgeGitHub(FakeGitHub):
@@ -40,8 +40,9 @@ class ChatGPTBridgeTests(unittest.TestCase):
         self.db = Store(":memory:")
         self.gh = BridgeGitHub()
         self.tg = FakeTelegram()
+        self.clock = Clock()
         self.controller = Controller(
-            self.cfg, self.db, self.gh, FakeCursor(), self.tg, backlog()
+            self.cfg, self.db, self.gh, FakeCursor(), self.tg, backlog(), clock=self.clock
         )
 
     def test_free_form_owner_message_enters_public_mailbox(self):
