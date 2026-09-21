@@ -42,6 +42,7 @@ class Settings:
     dts_endpoint: str = "http://localhost:8080"
     dts_task_hub: str = "default"
     durable_checkpoint_dir: str = ""
+    chatgpt_bridge_issue: int | None = None
 
     def __post_init__(self):
         backend = (self.orchestration_backend or "maf_durable").strip().lower()
@@ -148,4 +149,9 @@ class Settings:
             or "http://localhost:8080",
             dts_task_hub=os.environ.get("DTS_TASK_HUB", "default").strip() or "default",
             durable_checkpoint_dir=os.environ.get("DURABLE_CHECKPOINT_DIR", "").strip(),
+            chatgpt_bridge_issue=(
+                int(os.environ["CHATGPT_BRIDGE_ISSUE"])
+                if os.environ.get("CHATGPT_BRIDGE_ISSUE", "").strip()
+                else None
+            ),
         )
