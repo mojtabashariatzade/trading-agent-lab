@@ -14,21 +14,21 @@ python --version
 # Python 3.12.10
 
 python -m unittest discover -s tests -v
-# Full suite OK (includes protected + candidate)
+# Ran 179 tests — OK
 
 python -m unittest tests.test_policy tests.test_store tests.test_controller \
   tests.test_contracts tests.test_providers tests.test_settings \
   tests.test_team tests.test_research -v
-# Protected suite OK (~119 tests)
+# Protected suite — Ran 119 tests — OK
 
 python -m unittest discover -s tests/added -v
-# Candidate suite OK (~45+ tests including LocalCursor/maf/dup-PR/Negar QA)
+# Candidate suite — Ran 49 tests — OK (LocalCursor/maf/dup-PR/Negar QA)
 
 python -m compileall -q agentops trading_lab
 # exit 0
 ```
 
-Exact counts for the control-plane receipt are recorded in `BOOTSTRAP_RECEIPT.md` from the same machine run.
+Exact counts also recorded in `BOOTSTRAP_RECEIPT.md` from the same machine run. Main tip SHA is re-fetched there (do not rely on a stale SHA in this file).
 
 ## Git / GitHub (current reality)
 

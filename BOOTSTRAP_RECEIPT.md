@@ -9,7 +9,7 @@ Date: 2026-09-21. No Live trading. No broker access. No Cursor Cloud required fo
 | URL | https://github.com/mojtabashariatzade/trading-agent-lab |
 | Visibility | **PUBLIC** (intentional; do not change to private) |
 | Default branch | `main` |
-| main SHA (fetched this receipt) | `0323ad11593b4398e7698f9c69f33e3b5bfc8c9a` |
+| main SHA (fetched this receipt) | `93d6c7828b15508c0618dcff370966cdca7fbee5` |
 | Active workflow file | `.github/workflows/ci.yml` (`research-ci`) |
 
 ## Branch protection (`main`) — verified via API
@@ -21,6 +21,7 @@ Date: 2026-09-21. No Live trading. No broker access. No Cursor Cloud required fo
 | Required status check | `qa` (strict / up-to-date with base) |
 | Required PR reviews | YES (`required_approving_review_count=1`, `dismiss_stale_reviews=true`) |
 | Enforce admins | NO (admins can still bypass — documented limitation) |
+| `require_last_push_approval` | NO (limitation: last pusher need not re-approve) |
 | Rulesets | none configured (classic branch protection in use) |
 | GitHub “Negar approval” check | **NOT created** — Negar is a software role, not a GitHub human |
 
@@ -39,9 +40,9 @@ Date: 2026-09-21. No Live trading. No broker access. No Cursor Cloud required fo
 
 | Suite | Result |
 |---|---|
-| Full `unittest discover -s tests` | OK (**178** test cases discoverable; **175** observed in one quiet run before merge artifacts settled — re-verified suites below) |
+| Full `unittest discover -s tests` | OK (**179**) |
 | Protected suite | OK (**119**) |
-| Candidate `tests/added` | OK (**48** discoverable including dup-PR + Negar QA) |
+| Candidate `tests/added` | OK (**49**) |
 | `compileall agentops trading_lab` | exit 0 |
 
 ## Open / closed PRs (control-plane cleanup)
@@ -54,16 +55,18 @@ Closed as superseded (with comments):
 
 Kept open:
 
-- `#8` draft — autonomous supervisor / agentops (must stay draft until gates below)
-- `#14` — T101 parallel autonomy probe (still useful; CI previously green)
-- Also observed open (not in original close list): `#16` T003 scaffold, `#17` T102 probe — leave unless later superseded
+- `#8` draft — autonomous supervisor / agentops (must stay draft until gates below; head SHA invalidated when docs/merge commits land)
+- `#14` — T101 parallel autonomy probe (still useful; CI green)
+- `#17` — T102 parallel autonomy probe (still useful; CI green)
+
+Merged during cleanup window (no longer open): `#16` (T003), `#19` (T004).
 
 ## PR `#8` gates (not merge-ready until all true)
 
-- [x] Latest head CI `research-ci` / `qa` GREEN (`78e36ad…`, Actions run 35607974788)
+- [ ] Latest head CI `research-ci` / `qa` GREEN (re-verify after each push)
 - [x] Feature behavior verified on this PC (LocalCursor `_commit` / `_write_t002_execution` present; suites OK)
-- [x] Branch contains merge of `main` @ `0323ad1…`
-- [x] Negar QA evidence artifact for exact head SHA `78e36adbee1d33ac249755951d8009aafc2c9f76`
+- [x] Branch contains merge of `main` @ `93d6c78…`
+- [ ] Negar QA evidence artifact for **exact current** head SHA (prior SHA evidence is invalid after new commits)
 - [x] Remains **draft** until owner promotes (not merged by this cleanup)
 
 ## Negar QA mechanism
