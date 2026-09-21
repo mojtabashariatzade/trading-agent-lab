@@ -207,26 +207,77 @@ class LocalCursor:
             self._git(["add", "-f", path] if force else ["add", path], cwd=root)
         self._commit(root, title + " (no Cursor Cloud)")
         self._git(["push", "-u", "origin", branch], cwd=root)
-        pr_url = self._gh(
-            [
-                "pr", "create",
-                "--repo", self.github_repo,
-                "--base", "main",
-                "--head", branch,
-                "--title", title,
-                "--body", "Local Kian runtime delivery. No Cursor Cloud. No live trading.\n",
-            ],
-            cwd=root,
-        ).strip()
-        if not pr_url.startswith("http"):
-            for line in pr_url.splitlines()[::-1]:
-                if line.startswith("http"):
-                    pr_url = line.strip()
-                    break
+        body = (
+            f"Local Kian runtime delivery for {task_id}.\n"
+            f"[team:{task_id}]\n"
+            "No Cursor Cloud. No live trading.\n"
+        )
+        existing = self._find_existing_pr(branch=branch, task_id=task_id, title=title, cwd=root)
+        if existing:
+            pr_url = existing
+        else:
+            pr_url = self._gh(
+                [
+                    "pr", "create",
+                    "--repo", self.github_repo,
+                    "--base", "main",
+                    "--head", branch,
+                    "--title", title,
+                    "--body", body,
+                ],
+                cwd=root,
+            ).strip()
+            if not pr_url.startswith("http"):
+                for line in pr_url.splitlines()[::-1]:
+                    if line.startswith("http"):
+                        pr_url = line.strip()
+                        break
         return {
             "git": {"branches": [{"repoUrl": "github.com/" + self.github_repo, "prUrl": pr_url}]},
             "result": f"Local Kian finished {task_id}; PR opened.",
         }
+
+    def _find_existing_pr(self, *, branch: str, task_id: str, title: str, cwd: Path) -> str | None:
+        """Reuse an open PR for the same head branch or task id — do not create duplicates."""
+        # 1) Exact head branch
+        listed = self._gh(
+            [
+                "pr", "list",
+                "--repo", self.github_repo,
+                "--state", "open",
+                "--head", f"{self.github_repo.split('/')[0]}:{branch}",
+                "--json", "number,url,title,headRefName",
+            ],
+            cwd=cwd,
+        )
+        try:
+            rows = json.loads(listed) if listed.strip() else []
+        except json.JSONDecodeError:
+            rows = []
+        if rows:
+            return str(rows[0].get("url") or "")
+        # 2) Open PRs whose title contains the task id (same delivery identity)
+        listed = self._gh(
+            [
+                "pr", "list",
+                "--repo", self.github_repo,
+                "--state", "open",
+                "--search", f"{task_id} in:title",
+                "--json", "number,url,title,headRefName",
+            ],
+            cwd=cwd,
+        )
+        try:
+            rows = json.loads(listed) if listed.strip() else []
+        except json.JSONDecodeError:
+            rows = []
+        for row in rows:
+            row_title = str(row.get("title") or "")
+            if task_id in row_title.split() or f" {task_id} " in f" {row_title} " or task_id in row_title:
+                # Prefer matching delivery titles (same chore/feat family)
+                if title.split(":")[0] in row_title or task_id in row_title:
+                    return str(row.get("url") or "")
+        return None
 
     def _commit(self, root: Path, message: str) -> None:
         """Commit staged work; never fail the worker on an empty tree with identical content."""

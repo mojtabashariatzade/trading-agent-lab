@@ -403,6 +403,21 @@ class Controller:
         self.event(task, "RECONCILED_PR", f"{self.cfg.repo_url}/pull/{task['pr']} ci={ci}")
         return True
 
+    def bind_existing_open_pr(self, task: dict) -> bool:
+        """If an open PR already exists for this task id, bind it and resume — no second Kian PR."""
+        if task.get("pr"):
+            return self.reconcile_existing_delivery(task)
+        try:
+            number = self.gh.find_open_pr_number(task_id=task["id"])
+        except ProviderError:
+            return False
+        if not number:
+            return False
+        task["pr"] = number
+        self.db.save(task)
+        self.event(task, "BOUND_EXISTING_PR", f"{self.cfg.repo_url}/pull/{number}")
+        return self.reconcile_existing_delivery(task)
+
     def recover_or_block(self, task: dict, reason: str, *, immediate: bool = False) -> None:
         """Auto-restart stuck/crashed workers up to max_stuck_retries; then BLOCK and continue queue."""
         self.terminate_worker(task)
@@ -786,6 +801,29 @@ class Controller:
                 if ci != "PASS":
                     self.block(task, "CI no longer passes after review", retryable=ci == "FAIL")
                     return
+                from agentops.qa_evidence import record_negar_qa
+
+                evidence = record_negar_qa(
+                    repo=self.cfg.repo,
+                    pr=int(task["pr"]),
+                    head_sha=str(task["head_sha"]),
+                    verdict="PASS",
+                    ci_url=url,
+                    qa_payload=qa,
+                    now=self.clock(),
+                )
+                task["negar_qa"] = evidence
+                try:
+                    self.gh.comment_pr(
+                        int(task["pr"]),
+                        "```json\n"
+                        + json.dumps(evidence, indent=2, sort_keys=True)
+                        + "\n```\n"
+                        + "Negar QA evidence (software role, not a separate GitHub human). "
+                        "Invalid if PR head SHA changes.",
+                    )
+                except ProviderError:
+                    pass
                 reasons = approval_required_reasons(self.gh.files(task["pr"]))
                 task.update(
                     state="WAITING_APPROVAL",
@@ -825,6 +863,12 @@ class Controller:
             ):
                 try:
                     self.reconcile_existing_delivery(task)
+                except (ValueError, KeyError, ProviderError):
+                    pass
+        for task in self.db.tasks():
+            if task.get("state") == "PENDING" and not task.get("pr") and not task.get("run_id"):
+                try:
+                    self.bind_existing_open_pr(task)
                 except (ValueError, KeyError, ProviderError):
                     pass
         for task in self.db.research_tasks():
@@ -935,6 +979,9 @@ class Controller:
             base = self.ready_to_run()
             if "issue" not in task:
                 task["issue"] = self.gh.ensure_issue(spec)
+            if self.bind_existing_open_pr(task):
+                launched += 1
+                continue
             task.update(
                 attempt=task["attempt"] + 1,
                 base_sha=base,

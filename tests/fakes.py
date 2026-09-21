@@ -42,6 +42,26 @@ class FakeGitHub:
     def close_pr(self, number):
         self.closed_prs.append(number)
         self.pull['state'] = 'closed'
+    def find_open_prs(self, *, head=None, task_id=None):
+        rows = getattr(self, 'open_prs', [])
+        out = []
+        for row in rows:
+            if head and (row.get('head') or {}).get('ref') != head:
+                continue
+            if task_id:
+                title = row.get('title') or ''
+                body = row.get('body') or ''
+                if f'[team:{task_id}]' not in body and task_id not in title.split() and task_id not in title:
+                    continue
+            out.append(row)
+        return out
+    def find_open_pr_number(self, *, head=None, task_id=None):
+        rows = self.find_open_prs(head=head, task_id=task_id)
+        return int(rows[0]['number']) if rows else None
+    def comment_pr(self, number, body):
+        self.comments = getattr(self, 'comments', [])
+        self.comments.append((number, body))
+        return {'id': len(self.comments)}
     def request(self, title, body):
         self.requests.append((title, body))
         return 'https://github.com/' + REPO + '/issues/20'

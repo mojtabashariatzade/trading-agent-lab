@@ -148,6 +148,48 @@ class GitHub:
     def close_pr(self, number):
         self.http.call("PATCH", self.root + f"/pulls/{int(number)}", {"state": "closed"})
 
+    def comment_pr(self, number: int, body: str) -> dict:
+        return self.http.call(
+            "POST",
+            self.root + f"/issues/{int(number)}/comments",
+            {"body": body[:60000]},
+        )
+
+    def find_open_prs(self, *, head: str | None = None, task_id: str | None = None) -> list[dict]:
+        """List open PRs optionally filtered by head branch or task id in title/body."""
+        matches = []
+        owner = self.repo.split("/")[0]
+        for page in range(1, 21):
+            if head:
+                path = (
+                    self.root
+                    + f"/pulls?state=open&per_page=100&page={page}&head="
+                    + quote(f"{owner}:{head}", safe=":")
+                )
+            else:
+                path = self.root + f"/pulls?state=open&per_page=100&page={page}"
+            rows = self.http.call("GET", path)
+            if not isinstance(rows, list):
+                break
+            for row in rows:
+                if task_id:
+                    title = str(row.get("title") or "")
+                    body = str(row.get("body") or "")
+                    marker = f"[team:{task_id}]"
+                    tokens = title.replace("|", " ").replace("(", " ").replace(")", " ").split()
+                    if marker not in body and marker not in title and task_id not in tokens and task_id not in title:
+                        continue
+                matches.append(row)
+            if head or len(rows) < 100:
+                break
+        return matches
+
+    def find_open_pr_number(self, *, head: str | None = None, task_id: str | None = None) -> int | None:
+        rows = self.find_open_prs(head=head, task_id=task_id)
+        if not rows:
+            return None
+        return int(rows[0]["number"])
+
     def request(self, title, body):
         row = self.http.call("POST", self.root + "/issues", {"title": "[owner-request] " + title[:100], "body": body[:12000] + "\n\nPENDING SCOPE REVIEW: not executable from chat text."})
         return row["html_url"]
