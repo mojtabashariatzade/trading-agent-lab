@@ -1,11 +1,19 @@
-# Product contract -- approved research direction, not evidence of profitability
+# Product contract -- autonomous trading objective, not evidence of profitability
 
 ## Objective
-Build a GBPJPY/M15 multi-strategy research and decision system. Candidate complete
-strategies compete, complementary specialists are selected, and a learnable
-Decision Core chooses one eligible proposal or PASS. The system may progress
-through historical research, unseen evaluation, shadow, paper, and eventually an
-independently authorized small live pilot. This starter contains NO live adapter.
+Build an autonomous trading system for the owner's account. Its final operating
+loop observes markets, selects LONG or SHORT when justified, sizes and executes
+permitted positions, manages and closes them, and reconciles net trading P&L.
+PASS, WAIT and DATA_INSUFFICIENT are valid outcomes, not failures to trade.
+Income is from the system's own trades. Subscription sales, software licensing,
+signal sales and customer-facing analytics businesses are outside this project.
+
+GBPJPY/M15 is the first benchmark, not a hard-coded product boundary. Candidate
+complete strategies compete, complementary specialists are selected, and a
+learnable Decision Core chooses eligible proposals or no trade. Historical
+research, unseen evaluation, shadow and paper are stages toward separately
+authorized live use. This starter contains NO live adapter; the current change
+does not enable broker access or actual orders.
 
 The user's original source emphasizes equal execution conditions, causal data,
 chronological evaluation, realistic costs and not mistaking a beautiful backtest
@@ -17,6 +25,10 @@ sources, and a supervised autonomous SOFTWARE-DEVELOPMENT team.
 1. Development Core: issue/task state, worker runs, QA, evidence, owner approvals.
 2. Trading Decision Core: proposals, market state, risk veto and position handling.
 Software-development agents never receive broker credentials or trading authority.
+LONG/SHORT position intent must be distinguished from BUY/SELL order side: an
+order may open, reduce or close a position. An entry PASS must not stop protective
+management of an existing position. Operational lifecycle behavior requires its
+own tested adapter and risk rules; it is not implemented by changing this text.
 
 ## Fifteen proposed expert families (all UNTESTED)
 S01 EMA trend; S02 Donchian breakout; S03 volatility compression breakout;
@@ -85,6 +97,19 @@ Reinforcement learning and fly-connectome-inspired networks are separate later
 experiments. Match compute, data, features and execution; compare biological
 connectivity with random/topology controls. Never describe inspiration as proof.
 No money-making claim is established by this starter or its synthetic tests.
+
+The owner-supplied Market Grammar proposal is formalized as a research DESIGN,
+not implemented behavior, in architecture/MARKET_GRAMMAR_DESIGN.md. Geometry,
+causal market-state representation, the course Expert Knowledge Layer and
+structured confluence are challengers/complements to the existing fifteen
+families, not replacements. Preserve TEACHER_CLAIM -> FORMALIZED_HYPOTHESIS ->
+EMPIRICALLY_VERIFIED separately from UNKNOWN/CONFLICTING evidence. Keep raw
+course evidence immutable and private; no arbitrary confluence weights or
+missing course-rule numbers. Teacher-reconstruction accuracy and actual market
+validity are separate tests. Later compare Classic / Course / Universal /
+Combined under temporal and leave-one-instrument-out protocols. No universal
+claim follows from one market. This design does not expand the current data
+collection/training authorization or bypass #40 integrity gates.
 
 ## Gates
 Phase 1 contains six bounded implementation tasks. Later tasks are visible but
