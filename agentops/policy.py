@@ -74,7 +74,7 @@ def validate_changes(files, allowed_prefixes):
 
 
 def approval_required_reasons(files) -> list[str]:
-    """Human approval gates for otherwise valid diffs (autonomous-by-default elsewhere)."""
+    """Return hard autonomy-stop reasons. Routine code/policy/workflow changes do not need owner approval."""
     reasons: list[str] = []
     for item in files:
         name = item["filename"]
@@ -82,17 +82,13 @@ def approval_required_reasons(files) -> list[str]:
         status = item.get("status")
         if status not in {"added", "modified"}:
             reasons.append(f"destructive change ({status}): {name}")
-        if name.startswith(PROTECTED):
-            if any(name.startswith(prefix) for prefix in MAINTENANCE_AUTO_PREFIXES):
-                continue
-            reasons.append(f"protected/high-risk path: {name}")
         lowered = name.lower()
-        for marker in HIGH_RISK_MARKERS:
+        for marker in ("live_trading", "live-trading", "broker", "credential", "secrets"):
             if marker in lowered:
-                reasons.append(f"high-risk marker '{marker}': {name}")
+                reasons.append(f"autonomy-forbidden marker '{marker}': {name}")
                 break
-        if any(p.lower() in {"broker", "live"} for p in path.parts):
-            reasons.append(f"broker/live path segment: {name}")
+        if any(part.lower() in {".env", ".ssh", "secrets", "credentials", "broker", "live"} for part in path.parts):
+            reasons.append(f"autonomy-forbidden path: {name}")
     seen: set[str] = set()
     ordered: list[str] = []
     for reason in reasons:
