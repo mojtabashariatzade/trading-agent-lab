@@ -22,15 +22,24 @@ class OrchestrationBackendFlagTests(unittest.TestCase):
             protection_confirmed=True, agent_runtime="local", **kw,
         )
 
-    def test_default_backend_is_legacy(self):
-        self.assertEqual(self._settings().orchestration_backend, "legacy")
+    def test_default_backend_is_maf_durable(self):
+        self.assertEqual(self._settings().orchestration_backend, "maf_durable")
 
     def test_invalid_backend_rejected(self):
         with self.assertRaises(ValueError):
             replace(self._settings(), orchestration_backend="temporal")
 
-    def test_factory_returns_legacy_by_default(self):
-        cfg = self._settings()
+    def test_factory_returns_maf_durable_by_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = self._settings(durable_checkpoint_dir=tmp)
+            db = Store(":memory:")
+            ctl = Controller(cfg, db, FakeGitHub(), FakeCursor(), FakeTelegram(), backlog())
+            healer = MaintenanceLoop(cfg, db, ctl, Path("."))
+            backend = create_backend(cfg, ctl, healer)
+            self.assertEqual(backend.name, "maf_durable")
+
+    def test_factory_returns_legacy_when_flagged(self):
+        cfg = self._settings(orchestration_backend="legacy")
         db = Store(":memory:")
         ctl = Controller(cfg, db, FakeGitHub(), FakeCursor(), FakeTelegram(), backlog())
         healer = MaintenanceLoop(cfg, db, ctl, Path("."))
@@ -38,19 +47,7 @@ class OrchestrationBackendFlagTests(unittest.TestCase):
         self.assertIsInstance(backend, LegacyBackend)
         self.assertEqual(backend.name, "legacy")
 
-    def test_factory_returns_maf_durable_when_flagged(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            cfg = self._settings(
-                orchestration_backend="maf_durable",
-                durable_checkpoint_dir=tmp,
-            )
-            db = Store(":memory:")
-            ctl = Controller(cfg, db, FakeGitHub(), FakeCursor(), FakeTelegram(), backlog())
-            healer = MaintenanceLoop(cfg, db, ctl, Path("."))
-            backend = create_backend(cfg, ctl, healer)
-            self.assertEqual(backend.name, "maf_durable")
-
-    def test_from_env_defaults_legacy(self):
+    def test_from_env_defaults_maf_durable(self):
         env = {
             "GITHUB_REPOSITORY": REPO,
             "GITHUB_TOKEN": "t",
@@ -61,12 +58,12 @@ class OrchestrationBackendFlagTests(unittest.TestCase):
             "AGENT_RUNTIME": "local",
             "TELEGRAM_OPTIONAL": "true",
         }
-        old = {k: os.environ.get(k) for k in env}
+        old = {k: os.environ.get(k) for k in list(env) + ["ORCHESTRATION_BACKEND"]}
         try:
             os.environ.update(env)
             os.environ.pop("ORCHESTRATION_BACKEND", None)
             s = Settings.from_env()
-            self.assertEqual(s.orchestration_backend, "legacy")
+            self.assertEqual(s.orchestration_backend, "maf_durable")
         finally:
             for k, v in old.items():
                 if v is None:

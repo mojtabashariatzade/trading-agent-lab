@@ -73,8 +73,8 @@ $env:MAX_ATTEMPTS = if ($env:MAX_ATTEMPTS) { $env:MAX_ATTEMPTS } else { "2" }
 $env:MAX_RUN_SECONDS = if ($env:MAX_RUN_SECONDS) { $env:MAX_RUN_SECONDS } else { "5400" }
 $env:DEFAULT_BRANCH = if ($env:DEFAULT_BRANCH) { $env:DEFAULT_BRANCH } else { "main" }
 $env:SUPERVISOR_LOG_DIR = $LogDir
-# Keep legacy default so live queue is not switched mid-migration.
-$env:ORCHESTRATION_BACKEND = if ($env:ORCHESTRATION_BACKEND) { $env:ORCHESTRATION_BACKEND } else { "legacy" }
+# Owner cutover: default Development Core orchestration is maf_durable (rollback: ORCHESTRATION_BACKEND=legacy).
+$env:ORCHESTRATION_BACKEND = if ($env:ORCHESTRATION_BACKEND) { $env:ORCHESTRATION_BACKEND } else { "maf_durable" }
 $env:DTS_ENDPOINT = if ($env:DTS_ENDPOINT) { $env:DTS_ENDPOINT } else { "http://localhost:8080" }
 $env:DTS_TASK_HUB = if ($env:DTS_TASK_HUB) { $env:DTS_TASK_HUB } else { "default" }
 
