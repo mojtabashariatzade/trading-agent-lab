@@ -1,0 +1,71 @@
+name: telegram-cloud-relay
+
+on:
+  schedule:
+    - cron: "3-58/5 * * * *"
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: telegram-cloud-relay-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-slim
+    timeout-minutes: 3
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      CHATGPT_BRIDGE_ISSUE: "27"
+      GITHUB_OWNER_LOGIN: "mojtabashariatzade"
+    steps:
+      - name: Checkout relay
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          test -n "$TELEGRAM_BOT_TOKEN"
+          test -n "$TELEGRAM_OWNER_ID"
+          test -n "$TELEGRAM_CHAT_ID"
+      - name: Poll Telegram and enqueue owner messages
+        run: python scripts/telegram_cloud_relay.py poll
+
+  outbound:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 27 &&
+      github.event.comment.user.login == 'mojtabashariatzade' &&
+      contains(github.event.comment.body, '<!-- chatgpt-bridge:outbound ')
+    runs-on: ubuntu-slim
+    timeout-minutes: 3
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      CHATGPT_BRIDGE_ISSUE: "27"
+      GITHUB_OWNER_LOGIN: "mojtabashariatzade"
+    steps:
+      - name: Checkout relay
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          test -n "$TELEGRAM_BOT_TOKEN"
+          test -n "$TELEGRAM_OWNER_ID"
+          test -n "$TELEGRAM_CHAT_ID"
+      - name: Relay ChatGPT reply to Telegram
+        run: python scripts/telegram_cloud_relay.py outbound
