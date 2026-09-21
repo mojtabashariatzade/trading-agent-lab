@@ -144,15 +144,31 @@ def build_manifest(
     path = Path(payload_path)
     if not path.is_file():
         raise FileNotFoundError(path)
-    rows = [_aware_utc(value) for value in timestamps]
-    if not rows:
-        raise ValueError("Cannot manifest empty observations")
-    for previous, current in zip(rows, rows[1:]):
-        if current <= previous:
-            raise ValueError("timestamps must be strictly increasing")
-
+    # Single pass: O(number of gaps) metadata, not O(number of observations).
+    # The timestamp iterator must already correspond to the supplied payload;
+    # this manifest builder is not a file-format parser or provider verifier.
     seconds = int(expected_interval.total_seconds())
-    gaps = _detect_gaps(rows, expected_interval)
+    if seconds <= 0 or expected_interval != timedelta(seconds=seconds):
+        raise ValueError("expected_interval must be a positive whole number of seconds")
+    first: datetime | None = None
+    previous: datetime | None = None
+    count = 0
+    gaps: list[Gap] = []
+    for value in timestamps:
+        current = _aware_utc(value)
+        if previous is None:
+            first = current
+        else:
+            delta = current - previous
+            if delta <= timedelta(0):
+                raise ValueError("timestamps must be strictly increasing")
+            if delta > expected_interval:
+                missing = max(1, int(delta.total_seconds() // seconds) - 1)
+                gaps.append(Gap(previous, current, missing))
+        previous = current
+        count += 1
+    if first is None or previous is None:
+        raise ValueError("Cannot manifest empty observations")
     return DataManifest(
         dataset_id=dataset_id,
         provider_id=provider_id,
@@ -162,11 +178,11 @@ def build_manifest(
         checksum_algorithm="sha256",
         checksum_sha256=sha256_file(path),
         payload_bytes=path.stat().st_size,
-        actual_start=rows[0],
-        actual_end=rows[-1],
-        record_count=len(rows),
+        actual_start=first,
+        actual_end=previous,
+        record_count=count,
         expected_interval_seconds=seconds,
-        gaps=gaps,
+        gaps=tuple(gaps),
     )
 
 
