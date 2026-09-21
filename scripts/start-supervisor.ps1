@@ -77,6 +77,7 @@ $env:SUPERVISOR_LOG_DIR = $LogDir
 $env:ORCHESTRATION_BACKEND = if ($env:ORCHESTRATION_BACKEND) { $env:ORCHESTRATION_BACKEND } else { "maf_durable" }
 $env:DTS_ENDPOINT = if ($env:DTS_ENDPOINT) { $env:DTS_ENDPOINT } else { "http://localhost:8080" }
 $env:DTS_TASK_HUB = if ($env:DTS_TASK_HUB) { $env:DTS_TASK_HUB } else { "default" }
+$env:CHATGPT_BRIDGE_ISSUE = if ($env:CHATGPT_BRIDGE_ISSUE) { $env:CHATGPT_BRIDGE_ISSUE } else { "27" }
 
 $bootstrapConfig = [ordered]@{
   schema = "trading-agent-lab.runtime_config.v1"
@@ -105,6 +106,7 @@ $bootstrapConfig = [ordered]@{
   orchestration_backend = $env:ORCHESTRATION_BACKEND
   dts_endpoint = $env:DTS_ENDPOINT
   dts_task_hub = $env:DTS_TASK_HUB
+  chatgpt_bridge_issue = [int]$env:CHATGPT_BRIDGE_ISSUE
   live_trading = $false
   broker_access = $false
   monitoring_policy = @{
