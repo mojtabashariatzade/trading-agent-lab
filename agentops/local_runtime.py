@@ -75,7 +75,12 @@ class LocalCursor:
                 self.runs[run_id].update(status="ERROR", result=str(exc)[:2000])
 
     def _run_kian(self, row: dict) -> dict:
-        """Minimal scoped delivery under allowlisted prefixes; opens a real PR via gh."""
+        """Legacy deterministic worker. Disabled by default in ChatGPT/GitHub mode."""
+        if os.environ.get("ALLOW_DETERMINISTIC_LOCAL_WORKERS", "false").lower() != "true":
+            raise RuntimeError(
+                "Deterministic LocalCursor Kian is disabled. Use the external ChatGPT/GitHub brain; "
+                "set ALLOW_DETERMINISTIC_LOCAL_WORKERS=true only for explicit smoke tests."
+            )
         branch = "local/kian-" + row["agent_id"][-8:]
         work = [
             "trading_lab/data/__init__.py",
@@ -227,6 +232,11 @@ if __name__ == "__main__":
         }
 
     def _run_negar(self, row: dict) -> dict:
+        if os.environ.get("ALLOW_DETERMINISTIC_LOCAL_WORKERS", "false").lower() != "true":
+            raise RuntimeError(
+                "Deterministic LocalCursor Negar is disabled. Review must come from the external "
+                "ChatGPT/GitHub review path plus GitHub CI."
+            )
         prompt = row.get("prompt", "")
         sha = ""
         marker = "EXACT head "
