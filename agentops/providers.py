@@ -149,11 +149,28 @@ class GitHub:
         self.http.call("PATCH", self.root + f"/pulls/{int(number)}", {"state": "closed"})
 
     def comment_pr(self, number: int, body: str) -> dict:
+        return self.comment_issue(number, body)
+
+    def comment_issue(self, number: int, body: str) -> dict:
         return self.http.call(
             "POST",
             self.root + f"/issues/{int(number)}/comments",
             {"body": body[:60000]},
         )
+
+    def issue_comments(self, number: int) -> list[dict]:
+        rows: list[dict] = []
+        for page in range(1, 11):
+            batch = self.http.call(
+                "GET",
+                self.root + f"/issues/{int(number)}/comments?per_page=100&page={page}",
+            )
+            if not isinstance(batch, list):
+                break
+            rows.extend(batch)
+            if len(batch) < 100:
+                break
+        return rows
 
     def find_open_prs(self, *, head: str | None = None, task_id: str | None = None) -> list[dict]:
         """List open PRs optionally filtered by head branch or task id in title/body."""
