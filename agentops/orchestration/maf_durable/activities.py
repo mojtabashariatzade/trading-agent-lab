@@ -103,6 +103,22 @@ class TaskActivities:
         if task.get("state") == "BLOCKED":
             return ActivityResult("failed", str(task.get("feedback") or "BLOCKED"))
         if not task.get("run_id"):
+            # Prepare may already be checkpointed while the in-memory LocalCursor run
+            # was lost (ERROR / supervisor restart). Relaunch instead of wedging forever.
+            if task.get("state") in {"LAUNCHING_DEV", "DEVELOPING"}:
+                if self.controller.db.get("paused", True):
+                    return ActivityResult("waiting", "paused")
+                if self.controller.clock() < float(task.get("backoff_until") or 0):
+                    return ActivityResult("waiting", "backoff")
+                try:
+                    task["base_sha"] = self.controller.ready_to_run()
+                    self.controller.db.save(task)
+                    self.controller.launch(task, "dev")
+                except Exception as exc:  # noqa: BLE001
+                    return ActivityResult("waiting", f"relaunch: {exc}")
+                task = self.controller.db.task(task["id"]) or task
+                if task.get("run_id"):
+                    return ActivityResult("waiting", f"relaunched run_id={task['run_id']}")
             return ActivityResult("waiting", "no run_id yet")
         # Drive existing advance() for DEVELOPING / LAUNCHING_DEV.
         try:

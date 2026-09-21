@@ -1,0 +1,17 @@
+---
+description: Auto commit and push agentops/supervisor work without waiting for UI clicks
+globs: agentops/**,scripts/**start-supervisor*,scripts/**durable*,scripts/**dts*
+alwaysApply: false
+---
+
+# Auto commit/push after agentops work
+
+After finishing agentops/supervisor work on the current branch:
+
+1. `git add` only relevant files from this work (exclude secrets, `.env`, unrelated paths).
+2. Create a conventional commit message focused on why.
+3. `git push` to the current branch's remote.
+4. Do **not** ask the owner to click Commit & Push in the Cursor UI.
+5. Do **not** commit or push secrets, tokens, or credential files.
+
+Rollback remains possible via normal git history. If a pre-commit hook fails, fix and create a new commit (do not amend unless the existing amend rules are fully met).

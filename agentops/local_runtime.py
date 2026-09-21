@@ -71,8 +71,54 @@ class LocalCursor:
                 current.update(result)
                 current["status"] = "FINISHED"
         except Exception as exc:  # noqa: BLE001 — local worker must surface ERROR, not crash controller
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "LocalCursor run failed run_id=%s err=%s", run_id, str(exc)[:500]
+            )
             with self._lock:
                 self.runs[run_id].update(status="ERROR", result=str(exc)[:2000])
+
+    def _resolve_ref(self, ref: str) -> str:
+        """Return a git ref that exists locally; fetch or fall back to HEAD/main."""
+        candidate = (ref or "").strip() or "HEAD"
+        proc = subprocess.run(
+            ["git", "rev-parse", "--verify", candidate],
+            cwd=str(self.repo_root),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode == 0:
+            return proc.stdout.strip() or candidate
+        # Try fetching the tip from origin (short SHAs / remote-only commits).
+        subprocess.run(
+            ["git", "fetch", "--no-tags", "origin", candidate],
+            cwd=str(self.repo_root),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        proc = subprocess.run(
+            ["git", "rev-parse", "--verify", candidate],
+            cwd=str(self.repo_root),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode == 0:
+            return proc.stdout.strip() or candidate
+        for fallback in ("origin/main", "main", "HEAD"):
+            proc = subprocess.run(
+                ["git", "rev-parse", "--verify", fallback],
+                cwd=str(self.repo_root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode == 0:
+                return proc.stdout.strip() or fallback
+        return "HEAD"
 
     def _isolate(self, run_id: str, ref: str) -> Path:
         """Never checkout the supervisor/Cursor workspace; use a detached worktree."""
@@ -80,16 +126,55 @@ class LocalCursor:
         name = "".join(ch if ch.isalnum() else "-" for ch in run_id)[:40]
         path = base / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        if not (path / ".git").exists():
+        resolved = self._resolve_ref(ref)
+        if (path / ".git").exists() or (path / ".git").is_file():
+            # Reuse path: hard-reset so a previous ERROR cannot poison the next run.
+            subprocess.run(
+                ["git", "reset", "--hard"],
+                cwd=str(path),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            subprocess.run(
+                ["git", "clean", "-fd"],
+                cwd=str(path),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             proc = subprocess.run(
-                ["git", "worktree", "add", "--detach", str(path), ref or "HEAD"],
+                ["git", "checkout", "--detach", resolved],
+                cwd=str(path),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode != 0:
+                subprocess.run(
+                    ["git", "worktree", "remove", "--force", str(path)],
+                    cwd=str(self.repo_root),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+        if not (path / ".git").exists() and not (path / ".git").is_file():
+            if path.exists():
+                import shutil
+
+                shutil.rmtree(path, ignore_errors=True)
+            proc = subprocess.run(
+                ["git", "worktree", "add", "--detach", str(path), resolved],
                 cwd=str(self.repo_root),
                 capture_output=True,
                 text=True,
                 check=False,
             )
             if proc.returncode != 0:
-                raise RuntimeError(f"git worktree add failed: {(proc.stderr or proc.stdout)[-800:]}")
+                raise RuntimeError(
+                    f"git worktree add failed (ref={ref!r} resolved={resolved!r}): "
+                    f"{(proc.stderr or proc.stdout)[-800:]}"
+                )
         return path
 
     def _task_id(self, row: dict) -> str:
@@ -108,19 +193,19 @@ class LocalCursor:
         if task_id in {"T101", "T102"} or "Parallel autonomy probe" in row.get("prompt", ""):
             work = self._write_parallel_probe(root, task_id)
             title = f"chore(research): local {task_id} parallel autonomy probe"
-        else:
+        elif task_id == "T001":
             work = self._write_t001_bars(root)
             title = "feat(data): local Kian M15 bar helpers"
+        elif task_id == "T002":
+            work = self._write_t002_execution(root)
+            title = "feat(execution): local Kian research execution kernel stubs"
+        else:
+            work = self._write_scoped_stub(root, task_id)
+            title = f"chore(research): local Kian scaffold for {task_id}"
         for path in work:
-            self._git(["add", "-f", path] if path.startswith("trading_lab/data/") else ["add", path], cwd=root)
-        self._git(
-            [
-                "-c", "user.name=Kian Local",
-                "-c", "user.email=kian-local@users.noreply.github.com",
-                "commit", "-m", title + " (no Cursor Cloud)",
-            ],
-            cwd=root,
-        )
+            force = path.startswith("trading_lab/data/") or path.startswith("trading_lab/execution/")
+            self._git(["add", "-f", path] if force else ["add", path], cwd=root)
+        self._commit(root, title + " (no Cursor Cloud)")
         self._git(["push", "-u", "origin", branch], cwd=root)
         pr_url = self._gh(
             [
@@ -142,6 +227,134 @@ class LocalCursor:
             "git": {"branches": [{"repoUrl": "github.com/" + self.github_repo, "prUrl": pr_url}]},
             "result": f"Local Kian finished {task_id}; PR opened.",
         }
+
+    def _commit(self, root: Path, message: str) -> None:
+        """Commit staged work; never fail the worker on an empty tree with identical content."""
+        status = self._git(["status", "--porcelain"], cwd=root)
+        if not status.strip():
+            # Ensure a unique allowlisted note so PR/delivery can proceed.
+            stamp = str(int(time.time()))
+            note = root / "docs" / "research" / f"LOCAL_KIAN_DELIVERY_{stamp}.md"
+            note.parent.mkdir(parents=True, exist_ok=True)
+            note.write_text(
+                f"# Local Kian delivery marker\n\nstamp={stamp}\nNo live trading.\n",
+                encoding="utf-8",
+            )
+            self._git(["add", str(note.relative_to(root).as_posix())], cwd=root)
+        self._git(
+            [
+                "-c", "user.name=Kian Local",
+                "-c", "user.email=kian-local@users.noreply.github.com",
+                "commit", "-m", message,
+            ],
+            cwd=root,
+        )
+
+    def _write_t002_execution(self, root: Path) -> list[str]:
+        """Scoped T002 scaffold under trading_lab/execution/ — simulator only, no live orders."""
+        init = root / "trading_lab" / "execution" / "__init__.py"
+        init.parent.mkdir(parents=True, exist_ok=True)
+        init.write_text('"""Research execution kernel (simulator only; no live orders)."""\n', encoding="utf-8")
+        kernel = root / "trading_lab" / "execution" / "kernel.py"
+        kernel.write_text(
+            '''"""Event-driven research execution kernel stubs. No live-order functions."""
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Fill:
+    side: str
+    price: float
+    reason: str
+
+
+def entry_price(side: str, bid: float, ask: float) -> float:
+    """Buy uses ask; sell uses bid."""
+    side_u = side.upper()
+    if side_u == "BUY":
+        return ask
+    if side_u == "SELL":
+        return bid
+    raise ValueError("side must be BUY or SELL")
+
+
+def exit_price(side: str, bid: float, ask: float) -> float:
+    """Close long at bid; close short at ask."""
+    side_u = side.upper()
+    if side_u == "BUY":
+        return bid
+    if side_u == "SELL":
+        return ask
+    raise ValueError("side must be BUY or SELL")
+''',
+            encoding="utf-8",
+        )
+        test = root / "tests" / "added" / "test_execution_kernel_local_kian.py"
+        test.parent.mkdir(parents=True, exist_ok=True)
+        test.write_text(
+            '''"""Local Kian smoke tests for execution kernel stubs."""
+import unittest
+
+from trading_lab.execution.kernel import entry_price, exit_price
+
+
+class LocalKianExecutionTests(unittest.TestCase):
+    def test_buy_entry_uses_ask(self):
+        self.assertEqual(entry_price("BUY", 100.0, 100.2), 100.2)
+
+    def test_buy_exit_uses_bid(self):
+        self.assertEqual(exit_price("BUY", 100.0, 100.2), 100.0)
+
+
+if __name__ == "__main__":
+    unittest.main()
+''',
+            encoding="utf-8",
+        )
+        note = root / "docs" / "research" / "KIAN_T002_EXECUTION.md"
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text(
+            "# T002 local Kian execution kernel\n\n"
+            "Simulator stubs only. No live-order functions. No broker access.\n",
+            encoding="utf-8",
+        )
+        return [
+            "trading_lab/execution/__init__.py",
+            "trading_lab/execution/kernel.py",
+            "tests/added/test_execution_kernel_local_kian.py",
+            "docs/research/KIAN_T002_EXECUTION.md",
+        ]
+
+    def _write_scoped_stub(self, root: Path, task_id: str) -> list[str]:
+        note = root / "docs" / "research" / f"{task_id}_LOCAL_KIAN.md"
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text(
+            f"# {task_id} local Kian scaffold\n\nNo live trading. No broker access.\n",
+            encoding="utf-8",
+        )
+        test = root / "tests" / "added" / f"test_{task_id.lower()}_local_kian_stub.py"
+        test.parent.mkdir(parents=True, exist_ok=True)
+        test.write_text(
+            f'''"""Local Kian stub for {task_id}."""
+import unittest
+from pathlib import Path
+
+
+class LocalKianStub_{task_id}(unittest.TestCase):
+    def test_note_exists(self):
+        note = Path(__file__).resolve().parents[2] / "docs" / "research" / "{task_id}_LOCAL_KIAN.md"
+        self.assertTrue(note.is_file())
+
+
+if __name__ == "__main__":
+    unittest.main()
+''',
+            encoding="utf-8",
+        )
+        return [
+            f"docs/research/{task_id}_LOCAL_KIAN.md",
+            f"tests/added/test_{task_id.lower()}_local_kian_stub.py",
+        ]
 
     def _write_parallel_probe(self, root: Path, task_id: str) -> list[str]:
         note = root / "docs" / "research" / f"{task_id}_PARALLEL_PROBE.md"

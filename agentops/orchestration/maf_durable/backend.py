@@ -114,15 +114,38 @@ class MafDurableBackend:
                 ctl.db.save(task)
                 launched += 1
 
-        # Also attach instances for tasks already mid-flight without an id.
+        # Attach or replace durable instances for mid-flight coding tasks.
         for task in ctl.db.tasks():
             if task.get("state") in {"DONE", "BLOCKED", "PENDING"}:
                 continue
-            if task.get("durable_instance_id") and self.engine.get(task["durable_instance_id"]):
+            existing_id = task.get("durable_instance_id")
+            existing = self.engine.get(existing_id) if existing_id else None
+            if existing and existing.get("status") == "Running":
                 continue
-            rec = self.engine.start_task(task["id"])
+            # Failed/missing instances must not permanently freeze LAUNCHING_* shells.
+            force_new = bool(existing and existing.get("status") in {"Failed", "Completed"})
+            if existing and existing.get("status") == "Completed" and task.get("state") == "DONE":
+                continue
+            rec = self.engine.start_task(task["id"], force_new=force_new or not existing)
             task["durable_instance_id"] = rec["instance_id"]
+            task["durable_status"] = rec.get("status")
             ctl.db.save(task)
+
+        # Relaunch LAUNCHING_* shells that lost run_id (e.g. after ERROR / supervisor restart).
+        for task in ctl.db.tasks():
+            if task.get("state") not in {"LAUNCHING_DEV", "LAUNCHING_QA"}:
+                continue
+            if task.get("run_id"):
+                continue
+            if ctl.clock() < float(task.get("backoff_until") or 0):
+                continue
+            if len([t for t in ctl.db.tasks() if ctl.occupies_coding_worker(t)]) >= ctl.max_coding_workers():
+                break
+            role = "qa" if task.get("state") == "LAUNCHING_QA" else "dev"
+            try:
+                ctl.launch(task, role)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Relaunch failed for %s: %s", task.get("id"), exc)
 
         self.engine.advance_all_running(max_steps_each=2)
         self._sync_durable_ids()

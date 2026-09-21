@@ -19,19 +19,20 @@ class LocalDurableEngine:
         # Counts how many times each step body executed (for resume proofs).
         self.execution_counts: dict[str, int] = {}
 
-    def start_task(self, task_id: str, *, instance_id: str | None = None) -> dict:
-        existing = [
-            r
-            for r in self.store.list_all()
-            if r.get("task_id") == task_id and r.get("status") in {"Running", "Completed"}
-        ]
-        running = [r for r in existing if r.get("status") == "Running"]
-        if running:
-            return running[0]
-        completed = [r for r in existing if r.get("status") == "Completed"]
-        if completed and not instance_id:
-            # Reuse completed only if caller wants a fresh attempt via new instance_id.
-            return completed[-1]
+    def start_task(self, task_id: str, *, instance_id: str | None = None, force_new: bool = False) -> dict:
+        if not force_new:
+            existing = [
+                r
+                for r in self.store.list_all()
+                if r.get("task_id") == task_id and r.get("status") in {"Running", "Completed"}
+            ]
+            running = [r for r in existing if r.get("status") == "Running"]
+            if running:
+                return running[0]
+            completed = [r for r in existing if r.get("status") == "Completed"]
+            if completed and not instance_id:
+                # Reuse completed only if caller wants a fresh attempt via new instance_id.
+                return completed[-1]
         return self.store.create(task_id=task_id, instance_id=instance_id)
 
     def get(self, instance_id: str) -> dict | None:
