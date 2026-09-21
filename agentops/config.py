@@ -38,8 +38,16 @@ class Settings:
     max_run_seconds: int = 5400
     approval_seconds: int = 86400
     poll_seconds: int = 30
+    orchestration_backend: str = "maf_durable"
+    dts_endpoint: str = "http://localhost:8080"
+    dts_task_hub: str = "default"
+    durable_checkpoint_dir: str = ""
 
     def __post_init__(self):
+        backend = (self.orchestration_backend or "maf_durable").strip().lower()
+        if backend not in {"legacy", "maf_durable"}:
+            raise ValueError("ORCHESTRATION_BACKEND must be 'legacy' or 'maf_durable'")
+        object.__setattr__(self, "orchestration_backend", backend)
         if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", self.repo):
             raise ValueError("GITHUB_REPOSITORY must be owner/repository")
         if not self.telegram_optional:
@@ -134,4 +142,10 @@ class Settings:
             max_attempts=int(os.environ.get("MAX_ATTEMPTS", "2")),
             max_run_seconds=int(os.environ.get("MAX_RUN_SECONDS", "5400")),
             poll_seconds=int(os.environ.get("POLL_SECONDS", "30")),
+            orchestration_backend=os.environ.get("ORCHESTRATION_BACKEND", "maf_durable").strip().lower()
+            or "maf_durable",
+            dts_endpoint=os.environ.get("DTS_ENDPOINT", "http://localhost:8080").strip()
+            or "http://localhost:8080",
+            dts_task_hub=os.environ.get("DTS_TASK_HUB", "default").strip() or "default",
+            durable_checkpoint_dir=os.environ.get("DURABLE_CHECKPOINT_DIR", "").strip(),
         )

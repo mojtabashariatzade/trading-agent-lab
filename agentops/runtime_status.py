@@ -81,6 +81,9 @@ def build_runtime_config(settings) -> dict:
         "state_path": settings.state_path,
         "supervisor_command": "python -m agentops.supervisor",
         "process_name": "python",
+        "orchestration_backend": getattr(settings, "orchestration_backend", "legacy"),
+        "dts_endpoint": getattr(settings, "dts_endpoint", "http://localhost:8080"),
+        "dts_task_hub": getattr(settings, "dts_task_hub", "default"),
         "live_trading": False,
         "broker_access": False,
         "monitoring_policy": {
@@ -139,11 +142,15 @@ def build_status(
     stuck_timeout_seconds: int = 300,
     max_stuck_retries: int = 3,
     supervisor_restart_enabled: bool = False,
+    orchestration_backend: str = "legacy",
+    durable_runtime: str | None = None,
 ) -> dict:
     """Derive RUNNING / IDLE / BLOCKED / STOPPED from durable task state + process liveness."""
     paused = bool(store.get("paused", True))
     tasks = store.tasks()
     research = store.research_tasks()
+    backend = (orchestration_backend or store.get("orchestration_backend") or "legacy").strip().lower()
+    durable_runtime = durable_runtime or store.get("durable_runtime")
 
     active = [t for t in tasks if t.get("state") in ACTIVE_DEV]
     active_r = [t for t in research if t.get("state") in ACTIVE_RESEARCH]
@@ -155,11 +162,26 @@ def build_status(
     done = [t for t in tasks if t.get("state") == "DONE"]
 
     live = [t for t in tasks if t.get("state") in LIVE_WORKER and t.get("run_id")]
+    # maf_durable: RUNNING requires a real durable instance id as well as run_id.
+    if backend == "maf_durable":
+        live = [
+            t
+            for t in live
+            if t.get("durable_instance_id")
+            and str(t.get("durable_status") or "Running") == "Running"
+        ]
     waiting_dev = [t for t in tasks if t.get("state") in WAITING_DEV]
     waiting_dev.extend(t for t in tasks if t.get("state") in LIVE_WORKER and not t.get("run_id"))
     current = live[0] if live else (active_r[0] if active_r else (waiting_dev[0] if waiting_dev else None))
     current_task = current["id"] if current else None
     live_run = bool(current and current.get("run_id") and current.get("state") in LIVE_WORKER)
+    if backend == "maf_durable":
+        live_run = bool(
+            live_run
+            and current
+            and current.get("durable_instance_id")
+            and str(current.get("durable_status") or "") == "Running"
+        )
     current_agent = _agent_label(current) if current and live_run else None
     if not process_alive:
         current_agent = None
@@ -226,12 +248,16 @@ def build_status(
         status = "IDLE"
         next_action = next_action or ("start next ready queued task" if pending else "no authorized executable work")
 
+    durable_instance_id = (current or {}).get("durable_instance_id") if current else None
     return {
         "status": status,
         "paused": paused,
         "current_task": current_task,
         "current_agent": current_agent,
         "run_id": (current or {}).get("run_id"),
+        "durable_instance_id": durable_instance_id,
+        "orchestration_backend": backend,
+        "durable_runtime": durable_runtime,
         "last_progress_at": _iso((current or {}).get("last_progress_at")),
         "waiting_reason": waiting_reason,
         "next_action": next_action,

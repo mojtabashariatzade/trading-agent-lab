@@ -19,6 +19,7 @@ import traceback
 from .config import Settings
 from .controller import Controller, STATUS, DETAIL
 from .local_runtime import LocalCursor
+from .orchestration.factory import create_backend
 from .providers import Cursor, GitHub, NullTelegram, ProviderError, Telegram
 from .runtime_status import build_runtime_config, build_status, write_runtime_config, write_status
 from .selfheal import MaintenanceLoop
@@ -76,6 +77,8 @@ def _publish_status(cfg: Settings, db: Store, *, pid: int) -> dict:
         stuck_timeout_seconds=cfg.stuck_timeout_seconds,
         max_stuck_retries=cfg.max_stuck_retries,
         supervisor_restart_enabled=cfg.supervisor_restart_enabled,
+        orchestration_backend=cfg.orchestration_backend,
+        durable_runtime=db.get("durable_runtime"),
     )
     # Mirror non-sensitive monitoring pointers into status (still no secrets).
     payload["config_path"] = cfg.resolved_config_path
@@ -119,6 +122,7 @@ def main() -> int:
     backlog = json.loads((root / "planning/tasks.json").read_text(encoding="utf-8"))
     controller = Controller(cfg, db, gh, cursor, tg, backlog)
     healer = MaintenanceLoop(cfg, db, controller, root)
+    backend = create_backend(cfg, controller, healer)
     pid = os.getpid()
 
     # Autonomous boot: unpause when authorizations are already confirmed.
@@ -138,8 +142,9 @@ def main() -> int:
     _publish_config(cfg)
     _publish_status(cfg, db, pid=pid)
     logging.info(
-        "Supervisor alive pid=%s status_file=%s config_file=%s auto_merge_safe=%s",
+        "Supervisor alive pid=%s backend=%s status_file=%s config_file=%s auto_merge_safe=%s",
         pid,
+        backend.name,
         cfg.resolved_status_path,
         cfg.resolved_config_path,
         cfg.auto_merge_safe,
@@ -151,12 +156,10 @@ def main() -> int:
         while True:
             try:
                 for update in tg.updates(db.get("telegram_offset", 0)):
-                    controller.handle(update)
-                heal_reports = healer.tick()
-                if heal_reports:
-                    logging.info("Self-heal reports: %s", [r.get("status") for r in heal_reports])
-                controller.tick()
-                controller.flush()
+                    backend.handle(update)
+                backend.tick()
+                heal_reports = getattr(backend, "last_heal_reports", None) or []
+                backend.flush()
                 now = time.time()
                 payload = _publish_status(cfg, db, pid=pid)
                 if heal_reports:
@@ -180,7 +183,7 @@ def main() -> int:
                         f"heartbeat:{int(now // cfg.heartbeat_seconds)}",
                         _status_telegram_line(payload),
                     )
-                    controller.flush()
+                    backend.flush()
                     last_heartbeat = now
                 failures = 0
                 time.sleep(cfg.poll_seconds)
@@ -191,7 +194,7 @@ def main() -> int:
                 if exc.provider == "Telegram" and not cfg.telegram_optional:
                     db.set("paused", True)
                     try:
-                        controller.tick()
+                        backend.tick()
                     except (RuntimeError, ValueError, KeyError):
                         pass
                 time.sleep(min(300, 10 * 2 ** min(failures, 5)))
@@ -206,7 +209,7 @@ def main() -> int:
                     + str(exc)[:500],
                 )
                 try:
-                    controller.flush()
+                    backend.flush()
                 except ProviderError:
                     pass
                 time.sleep(30)
@@ -227,6 +230,8 @@ def main() -> int:
                 stuck_timeout_seconds=cfg.stuck_timeout_seconds,
                 max_stuck_retries=cfg.max_stuck_retries,
                 supervisor_restart_enabled=cfg.supervisor_restart_enabled,
+                orchestration_backend=cfg.orchestration_backend,
+                durable_runtime=db.get("durable_runtime"),
             )
             payload["status"] = "STOPPED"
             write_status(cfg.resolved_status_path, payload)

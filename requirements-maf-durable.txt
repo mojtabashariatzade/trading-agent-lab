@@ -1,0 +1,7 @@
+# Optional — only for ORCHESTRATION_BACKEND=maf_durable with live DTS.
+# Do not install into the default legacy supervisor path unless reviewed.
+agent-framework-durabletask>=1.0.0b0
+# Transitive (pinned loosely; pip resolves):
+#   agent-framework-core
+#   durabletask
+#   durabletask-azuremanaged
