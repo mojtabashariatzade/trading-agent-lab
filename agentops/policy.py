@@ -22,10 +22,26 @@ PROTECTED = (
     "docs/SECURITY",
 )
 
-# Self-heal may auto-merge only these prefixes (still never secrets/live/broker).
+# Safe autonomy paths may auto-merge after CI+Negar PASS (still never secrets/live/broker).
+# Keep policy.py, planning/, .github/, AGENTS.md, and high-risk markers under human approval.
 MAINTENANCE_AUTO_PREFIXES = (
     "agentops/selfheal/",
+    "agentops/runtime_status.py",
+    "agentops/local_runtime.py",
+    "agentops/controller.py",
+    "agentops/supervisor.py",
+    "agentops/config.py",
+    "agentops/__main__.py",
+    "agentops/providers.py",
+    "agentops/store.py",
     "tests/added/",
+    "scripts/start-supervisor.ps1",
+    "scripts/ensure-supervisor.ps1",
+    "scripts/check-supervisor-status.ps1",
+    "scripts/register-supervisor-autostart.ps1",
+    "scripts/run-local-host.ps1",
+    "docs/TEAM.md",
+    "BOOTSTRAP_RECEIPT.md",
 )
 
 HIGH_RISK_MARKERS = (

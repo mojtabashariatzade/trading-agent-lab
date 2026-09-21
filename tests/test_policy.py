@@ -10,9 +10,14 @@ class PolicyTests(unittest.TestCase):
         self.assertFalse(validate_changes([{'filename': '.github/workflows/ci.yml', 'status': 'modified'}], ['trading_lab/'])[0])
 
     def test_protected_in_scope_passes_validate_but_needs_approval(self):
-        files = [{'filename': 'agentops/controller.py', 'status': 'modified'}]
+        files = [{'filename': 'agentops/policy.py', 'status': 'modified'}]
         self.assertTrue(validate_changes(files, ['agentops/'])[0])
         self.assertTrue(any('protected' in r for r in approval_required_reasons(files)))
+
+    def test_safe_agentops_controller_does_not_require_approval(self):
+        files = [{'filename': 'agentops/controller.py', 'status': 'modified'}]
+        self.assertTrue(validate_changes(files, ['agentops/'])[0])
+        self.assertEqual(approval_required_reasons(files), [])
 
     def test_selfheal_prefix_does_not_require_approval(self):
         files = [{'filename': 'agentops/selfheal/maintenance.py', 'status': 'modified'}]

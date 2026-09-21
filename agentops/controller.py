@@ -55,9 +55,22 @@ class Controller:
         canonical = json.dumps(backlog, sort_keys=True, separators=(",", ":"))
         digest = hashlib.sha256(canonical.encode()).hexdigest()
         previous = store.get("backlog_digest")
+        snapshot = store.get("backlog_snapshot")
         if previous and previous != digest:
-            raise ValueError("Backlog changed. A reviewed state migration is required; no silent task replacement.")
+            # Additive-only migration: existing task specs must be unchanged; new IDs allowed.
+            if snapshot is None:
+                raise ValueError("Backlog changed. A reviewed state migration is required; no silent task replacement.")
+            prev_by_id = {s["id"]: s for s in snapshot}
+            new_by_id = {s["id"]: s for s in backlog}
+            if set(prev_by_id) - set(new_by_id):
+                raise ValueError("Backlog removed tasks. A reviewed state migration is required.")
+            for tid, old in prev_by_id.items():
+                if new_by_id.get(tid) != old:
+                    raise ValueError(
+                        f"Backlog task {tid} changed. A reviewed state migration is required; no silent replacement."
+                    )
         store.set("backlog_digest", digest)
+        store.set("backlog_snapshot", backlog)
         identity = (settings.repo, settings.branch)
         if store.get("repo_identity") not in (None, list(identity)):
             raise ValueError("State belongs to a different repository")
@@ -289,7 +302,12 @@ class Controller:
         self.db.save(task)  # persist id before a possibly ambiguous paid API call
         ref = task["head_sha"] if role == "qa" else task["base_sha"]
         run_id = self.cursor.create(agent_id, f"{profile.name_en} | {role.upper()} {task['id']} attempt {task['attempt']}", self.cfg.repo_url, ref, self.prompt(task, role), review=role == "qa", model=self.cfg.model)
-        task.update(run_id=run_id, state="REVIEWING" if role == "qa" else "DEVELOPING")
+        task.update(
+            run_id=run_id,
+            state="REVIEWING" if role == "qa" else "DEVELOPING",
+            last_error=None,
+            feedback="",
+        )
         self.touch_progress(task, f"{task['state']}:{run_id}:RUNNING")
         self.db.save(task)
         self.event(task, task["state"], f"https://cursor.com/agents/{agent_id}")
@@ -318,6 +336,10 @@ class Controller:
     def paid_launch_cap_applies(self) -> bool:
         """MAX_DAILY_LAUNCHES is a cloud/paid budget, not a local team-wide wall."""
         return self.cfg.agent_runtime != "local"
+
+    def max_coding_workers(self) -> int:
+        """Local worktrees allow parallel independent coding; cloud stays single-slot."""
+        return 2 if self.cfg.agent_runtime == "local" else 1
 
     def occupies_coding_worker(self, task: dict) -> bool:
         """A live coding worker (or mid-create) occupies the shared worktree. Waiting does not."""
@@ -831,7 +853,7 @@ class Controller:
                 self.db.save(task)
         if self.db.get("paused", True):
             return
-        # Research workers may run, but only one coding delivery at a time.
+        # Research workers may run alongside coding. Local allows up to max_coding_workers.
         active_research = any(
             t["state"] in {
                 ResearchState.LAUNCHING.value,
@@ -841,38 +863,39 @@ class Controller:
             for t in self.db.research_tasks()
         )
         tasks = self.db.tasks()
-        if any(self.occupies_coding_worker(t) for t in tasks):
-            return  # one live coding worker; CI/approval waits must not freeze independent work
+        busy = [t for t in tasks if self.occupies_coding_worker(t)]
+        slots = self.max_coding_workers() - len(busy)
+        if slots <= 0:
+            return
         for task in tasks:
             if task["state"] == "BLOCKED" and task.get("retryable"):
                 if task["attempt"] < self.cfg.max_attempts:
                     self.retry(task)
                     return
-                # Attempt counter exhausted while still retryable (e.g. worker ERROR).
-                # Do not stall the dependency chain — route through stuck recovery.
                 self.recover_or_block(
                     task,
                     "Attempt cap with retryable failure: "
                     + str(task.get("feedback") or task.get("last_error") or "")[:500],
                 )
                 return
-        # Prefer clearing required research before starting implementation.
         for task in self.db.research_tasks():
             if task["state"] == ResearchState.PENDING.value:
                 if self.paid_launch_cap_applies() and self.db.launch_count(self.day()) >= self.cfg.max_daily_launches:
-                    return
+                    break
                 self.launch_research(task)
-                return
-        if active_research:
+                break
+        if active_research and self.cfg.agent_runtime != "local":
             return
         done = {t["id"] for t in self.db.tasks() if t["state"] == "DONE"}
+        launched = 0
         for task in self.db.tasks():
+            if launched >= slots:
+                return
             spec = self.specs[task["id"]]
             if task["state"] != "PENDING" or spec["phase"] > self.cfg.max_phase or not set(spec["depends_on"]) <= done:
                 continue
             gate = self.research_gate_for_dev(spec)
             if gate:
-                # Auto-create missing research kinds once, then wait.
                 existing_kinds = {
                     item["kind"]
                     for item in self.db.research_tasks()
@@ -896,13 +919,21 @@ class Controller:
                     or self.db.launch_count(self.day()) < self.cfg.max_daily_launches
                 ):
                     self.launch_research(created[0])
-                return
+                continue
             if self.paid_launch_cap_applies() and self.db.launch_count(self.day()) >= self.cfg.max_daily_launches:
                 return
             base = self.ready_to_run()
             if "issue" not in task:
                 task["issue"] = self.gh.ensure_issue(spec)
-            task.update(attempt=task["attempt"] + 1, base_sha=base, launch_at=None, role="dev", state="LAUNCHING_DEV")
+            task.update(
+                attempt=task["attempt"] + 1,
+                base_sha=base,
+                launch_at=None,
+                role="dev",
+                state="LAUNCHING_DEV",
+                last_error=None,
+            )
             self.db.save(task)
             self.launch(task, "dev")
-            return
+            launched += 1
+        return

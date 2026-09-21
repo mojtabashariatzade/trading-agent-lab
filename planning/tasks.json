@@ -123,6 +123,38 @@
     "phase": 1
   },
   {
+    "id": "T101",
+    "title": "Parallel autonomy probe A",
+    "description": "Independent phase-1 docs/test smoke to prove the scheduler can run alongside other ready work. No trading code. No live data.",
+    "acceptance": [
+      "Adds a dated research note under docs/research/.",
+      "Adds a focused unit test under tests/added/.",
+      "Does not depend on T001-T006 delivery."
+    ],
+    "allowed_prefixes": [
+      "docs/research/",
+      "tests/added/"
+    ],
+    "depends_on": [],
+    "phase": 1
+  },
+  {
+    "id": "T102",
+    "title": "Parallel autonomy probe B",
+    "description": "Second independent phase-1 docs/test smoke for concurrent LocalCursor workers. No trading code. No live data.",
+    "acceptance": [
+      "Adds a distinct research note under docs/research/.",
+      "Adds a distinct unit test under tests/added/.",
+      "Can run concurrently with T101."
+    ],
+    "allowed_prefixes": [
+      "docs/research/",
+      "tests/added/"
+    ],
+    "depends_on": [],
+    "phase": 1
+  },
+  {
     "id": "T007",
     "title": "Real historical data pipeline and archive coverage",
     "description": "After phase and provider authorization, build resumable price-history ingestion from 2016 through actual data_end_utc and a separately tracked macro release archive. Use secure collector deployment for licensed feeds, never inject paid-data credentials into coding agents.",

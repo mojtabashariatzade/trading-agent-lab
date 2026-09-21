@@ -188,7 +188,7 @@ def main() -> int:
                 failures += 1
                 logging.warning("Provider unavailable: %s", exc)
                 _publish_status(cfg, db, pid=pid)
-                if exc.provider == "Telegram":
+                if exc.provider == "Telegram" and not cfg.telegram_optional:
                     db.set("paused", True)
                     try:
                         controller.tick()

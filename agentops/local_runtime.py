@@ -92,22 +92,101 @@ class LocalCursor:
                 raise RuntimeError(f"git worktree add failed: {(proc.stderr or proc.stdout)[-800:]}")
         return path
 
+    def _task_id(self, row: dict) -> str:
+        blob = f"{row.get('name', '')}\n{row.get('prompt', '')}"
+        for token in blob.replace("|", " ").split():
+            if token.startswith("T") and token[1:].isdigit():
+                return token
+        return "T000"
+
     def _run_kian(self, row: dict) -> dict:
         """Minimal scoped delivery under allowlisted prefixes; opens a real PR via gh."""
         root = self._isolate(row["id"], row.get("ref") or "HEAD")
         branch = "local/kian-" + row["agent_id"][-8:]
+        task_id = self._task_id(row)
+        self._git(["checkout", "-B", branch], cwd=root)
+        if task_id in {"T101", "T102"} or "Parallel autonomy probe" in row.get("prompt", ""):
+            work = self._write_parallel_probe(root, task_id)
+            title = f"chore(research): local {task_id} parallel autonomy probe"
+        else:
+            work = self._write_t001_bars(root)
+            title = "feat(data): local Kian M15 bar helpers"
+        for path in work:
+            self._git(["add", "-f", path] if path.startswith("trading_lab/data/") else ["add", path], cwd=root)
+        self._git(
+            [
+                "-c", "user.name=Kian Local",
+                "-c", "user.email=kian-local@users.noreply.github.com",
+                "commit", "-m", title + " (no Cursor Cloud)",
+            ],
+            cwd=root,
+        )
+        self._git(["push", "-u", "origin", branch], cwd=root)
+        pr_url = self._gh(
+            [
+                "pr", "create",
+                "--repo", self.github_repo,
+                "--base", "main",
+                "--head", branch,
+                "--title", title,
+                "--body", "Local Kian runtime delivery. No Cursor Cloud. No live trading.\n",
+            ],
+            cwd=root,
+        ).strip()
+        if not pr_url.startswith("http"):
+            for line in pr_url.splitlines()[::-1]:
+                if line.startswith("http"):
+                    pr_url = line.strip()
+                    break
+        return {
+            "git": {"branches": [{"repoUrl": "github.com/" + self.github_repo, "prUrl": pr_url}]},
+            "result": f"Local Kian finished {task_id}; PR opened.",
+        }
+
+    def _write_parallel_probe(self, root: Path, task_id: str) -> list[str]:
+        note = root / "docs" / "research" / f"{task_id}_PARALLEL_PROBE.md"
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text(
+            f"# {task_id} parallel autonomy probe\n\n"
+            "Independent LocalCursor delivery. No live trading. No broker access.\n"
+            "Exists to prove concurrent workers on independent backlog tasks.\n",
+            encoding="utf-8",
+        )
+        test = root / "tests" / "added" / f"test_{task_id.lower()}_parallel_probe.py"
+        test.write_text(
+            f'''"""Parallel autonomy probe for {task_id}."""
+import unittest
+from pathlib import Path
+
+
+class ParallelProbe_{task_id}(unittest.TestCase):
+    def test_note_exists(self):
+        note = Path(__file__).resolve().parents[2] / "docs" / "research" / "{task_id}_PARALLEL_PROBE.md"
+        self.assertTrue(note.is_file())
+
+
+if __name__ == "__main__":
+    unittest.main()
+''',
+            encoding="utf-8",
+        )
+        return [
+            f"docs/research/{task_id}_PARALLEL_PROBE.md",
+            f"tests/added/test_{task_id.lower()}_parallel_probe.py",
+        ]
+
+    def _write_t001_bars(self, root: Path) -> list[str]:
         work = [
             "trading_lab/data/__init__.py",
             "trading_lab/data/bars.py",
             "tests/added/test_bars_local_kian.py",
             "docs/research/KIAN_LOCAL_RUN.md",
         ]
-        self._git(["checkout", "-B", branch], cwd=root)
         data_init = root / "trading_lab" / "data" / "__init__.py"
         data_init.parent.mkdir(parents=True, exist_ok=True)
         if not data_init.exists():
             data_init.write_text('"""Market data helpers for research (no live feeds)."""\n', encoding="utf-8")
-        bars = self.repo_root / "trading_lab" / "data" / "bars.py"
+        bars = root / "trading_lab" / "data" / "bars.py"
         bars.write_text(
             '''"""Half-open UTC M15 bars from bid/ask quotes. Local Kian delivery; no network I/O."""
 from dataclasses import dataclass
@@ -220,29 +299,7 @@ if __name__ == "__main__":
             "No network downloader. No live trading.\n",
             encoding="utf-8",
         )
-        for path in work:
-            self._git(["add", "-f", path] if path.startswith("trading_lab/data/") else ["add", path], cwd=root)
-        self._git(["-c", "user.name=Kian Local", "-c", "user.email=kian-local@users.noreply.github.com",
-                   "commit", "-m", "feat(data): local Kian M15 bar helpers (no Cursor Cloud)"], cwd=root)
-        self._git(["push", "-u", "origin", branch], cwd=root)
-        pr_url = self._gh([
-            "pr", "create",
-            "--repo", self.github_repo,
-            "--base", "main",
-            "--head", branch,
-            "--title", "feat(data): local Kian M15 bar helpers",
-            "--body",             "Local Kian runtime delivery. No Cursor Cloud. No live trading.\n\nImplements scoped bar helpers + tests under allowlisted prefixes.",
-        ], cwd=root).strip()
-        if not pr_url.startswith("http"):
-            # gh may print https URL on last line
-            for line in pr_url.splitlines()[::-1]:
-                if line.startswith("http"):
-                    pr_url = line.strip()
-                    break
-        return {
-            "git": {"branches": [{"repoUrl": "github.com/" + self.github_repo, "prUrl": pr_url}]},
-            "result": "Local Kian finished; PR opened.",
-        }
+        return work
 
     def _run_negar(self, row: dict) -> dict:
         prompt = row.get("prompt", "")
