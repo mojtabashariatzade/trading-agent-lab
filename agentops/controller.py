@@ -711,24 +711,24 @@ class Controller:
         self.reconcile_merge(task)
 
     def maybe_auto_merge(self, task):
-        """Merge when CI+Negar PASS and the diff is outside human-approval gates."""
-        reasons = list(task.get("approval_reasons") or [])
-        if not reasons:
-            reasons = approval_required_reasons(self.gh.files(task["pr"]))
-            task["approval_reasons"] = reasons
-            self.db.save(task)
-        if reasons or not self.cfg.auto_merge_safe:
-            buttons = [[{"text": APPROVE, "callback_data": f"a:{task['id']}:{task['head_sha']}"}]]
-            detail = (
-                f"Human approval required; CI+QA PASS\n{LINK}: {self.cfg.repo_url}/pull/{task['pr']}\n"
-                f"{DETAIL}: exact SHA {task['head_sha']}; reasons: " + "; ".join(reasons[:8])
+        """Auto-merge routine work after fresh CI + exact-head QA; never wait on owner approval."""
+        reasons = approval_required_reasons(self.gh.files(task["pr"]))
+        task["approval_reasons"] = reasons
+        self.db.save(task)
+        if reasons:
+            self.block(
+                task,
+                "Autonomy safety gate blocked merge: " + "; ".join(reasons[:8]),
+                retryable=False,
             )
-            self.event(task, "WAITING_APPROVAL", detail, buttons)
+            return False
+        if not self.cfg.auto_merge_safe:
+            self.block(task, "AUTO_MERGE_SAFE is disabled; owner approval is not part of the operating model.", retryable=False)
             return False
         self.event(
             task,
             "AUTO_MERGE",
-            f"CI green + Negar PASS; safe auto-merge\n{LINK}: {self.cfg.repo_url}/pull/{task['pr']}\n"
+            f"CI green + Negar PASS; autonomous merge\n{LINK}: {self.cfg.repo_url}/pull/{task['pr']}\n"
             f"{DETAIL}: exact SHA {task['head_sha']}",
         )
         self.approve(task["id"], task["head_sha"])
