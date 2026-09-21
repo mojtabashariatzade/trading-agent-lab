@@ -114,7 +114,7 @@ def preview(plan: dict, state: dict, on: date) -> dict:
             blocked.append({'id': ident, 'dependencies': needs, 'reason': records.get(ident, {}).get('blocker')})
         if task['planned_finish'] < on.isoformat():
             overdue.append(ident)
-    selected, interrupts = {}, []
+    selected, interrupts, pulled_forward = {}, [], []
     for lane in ('product', 'research'):
         active = [t for t in tasks.values() if t['lane'] == lane and status(t['id']) in ACTIVE]
         ready = sorted((t for t in due if t['lane'] == lane and t['id'] not in missing and status(t['id']) == 'QUEUED'),
@@ -124,11 +124,19 @@ def preview(plan: dict, state: dict, on: date) -> dict:
             selected[lane] = current['id']
             interrupts.extend(t['id'] for t in ready if t['priority'] == 'P1' and current['priority'] != 'P1')
         else:
+            if not ready:
+                ready = sorted((t for t in tasks.values() if t['lane'] == lane
+                                and status(t['id']) == 'QUEUED'
+                                and t['planned_start'] > on.isoformat()
+                                and all(status(d) == 'DONE' for d in t['depends_on'])),
+                               key=lambda t: (t['priority'], t['planned_start'], t['id']))
+                if ready:
+                    pulled_forward.append(ready[0]['id'])
             selected[lane] = ready[0]['id'] if ready else None
     return {'plan_id': plan['plan_id'], 'date': on.isoformat(),
             'nominal_day': next((r for r in plan['days'] if r['date'] == on.isoformat()), None),
             'selected': selected, 'blocked': blocked, 'overdue_original_targets': sorted(overdue),
-            'interrupt_at_safe_checkpoint': interrupts,
+            'interrupt_at_safe_checkpoint': interrupts, 'pulled_forward': pulled_forward,
             'state_snapshot_date': state['as_of_date'], 'state_is_stale': state_date < on,
             'evidence_status': 'REFERENCES_ONLY_REVALIDATE_IN_GITHUB',
             'mode': 'READ_ONLY_PREVIEW_NO_WORKER_STARTED'}
