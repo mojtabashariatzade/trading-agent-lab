@@ -1,32 +1,32 @@
 # Trading Agent Lab
 ## Project handbook and delivery plan
 
-Version 1.0 | Planning baseline: 22 September 2026 | Owner: project owner
+Version 1.1 | Planning baseline: 22 September 2026 | Owner: project owner
 
 Document custodian: Arman delivery function. Role names identify responsibilities, not independent people or continuously running agents. This handbook is the project reading entry point. GitHub evidence remains authoritative for implementation and deployment status.
 
 ### Reading guide
-Read sections 1-4 for direction and near-term delivery, 5-8 for team/research/engineering, 9-10 for finance and risk, and 11-13 for release, operations and documentation. The Persian companion is an owner-facing summary of this same plan, not a separate backlog. Proposed dates are planning windows, not delivery guarantees.
+Read sections 1-4 for direction and near-term delivery, 5-8 for team/research/engineering, 9-10 for revenue and risk, and 11-13 for release, operations and documentation. Read [REVENUE_PLAN.md](REVENUE_PLAN.md) for the full income model and [DAILY_DELIVERY_PLAN.md](DAILY_DELIVERY_PLAN.md) for dated daily work. The Persian companion is an owner-facing summary of this same plan, not a separate backlog. Proposed dates are planning windows, not delivery guarantees.
 
 ## 1. Executive decisions
 
 Build a GBPJPY/M15 research system in which candidates compete within strategy families, eligible family representatives compete across families, and a Trading Decision Core selects a proposal or PASS. Technical, fundamental and news information are in scope. None of the fifteen candidates is presumed profitable. The software-development coordinator and Trading Decision Core remain separate. [R1, R7]
 
-The immediate business objective is reliable evidence at controlled cost, not trading revenue. The first deliverable is a reproducible real-data replay with the existing three experts, after relevant execution and provenance defects are fixed. This is an intermediate acceptance milestone; it does not replace the full fifteen-family and learned-Core objective.
+The business objective is a validated path to trading income, with an optional later research-software revenue route. Reliable evidence is the prerequisite, not a replacement for this income objective. The first deliverable is a reproducible real-data replay with the existing three experts, after relevant execution and provenance defects are fixed. This is an intermediate acceptance milestone; it does not replace the full fifteen-family and learned-Core objective.
 
 Management decisions for this plan:
 - Keep one coordinator, one active product-code item and one bounded research question. Do not add agents, services or infrastructure merely to increase apparent activity.
 - Complete or document the exact release blocker for an existing reviewed change before opening another overlapping implementation.
-- Keep new paid services, model APIs, paid datasets, hardware purchases and trading capital at an authorized budget of USD 0. Existing subscriptions, electricity and owner time still have economic cost.
+- Track revenue hypotheses, validated research results and actual earnings separately. Do not substitute an expense-cap table for the financial strategy.
 - Treat one month as a target for a serious research alpha, conditional on the first-week evidence. It is not a commitment to a fully trained, fifteen-family final system.
 - Preserve source evidence, negative results and failed experiments. A valid NO_EDGE or DATA_INSUFFICIENT result is better than a fabricated winner.
-- Keep broker connection, live activation, leverage/risk increases and commercial launch outside current authorization. Expansion is gated, not automatic.
+- Keep broker connection, live activation, leverage/risk increases and commercial launch outside current authorization. Expansion is gated, not automatic. Removing the former zero-budget table does not authorize new purchases or account access.
 
 This plan does not silently change immutable task definitions, repository protections or deployment configuration. Where existing documents still describe manual approvals or legacy workers, issue #42 must reconcile the actual behavior through reviewed changes. Routine owner authorization does not bypass platform permissions or required reviews. [R1, R6]
 
 ## 2. Evidence baseline and current gaps
 
-Repository baseline inspected: main@16bcf1f1fe39d76eca510734a20d267ad651871d. The following is a dated snapshot, not a real-time dashboard. Recheck links before making a release decision.
+Product-code baseline inspected: main@16bcf1f1fe39d76eca510734a20d267ad651871d. Documentation baseline for this revision: main@8fbdeb4988ee83359dac47d132342e165a311d37 after PR #44. The following is a dated snapshot, not a real-time dashboard. Recheck links before making a release decision.
 
 | Area | Evidence-backed baseline | Gap before final evaluation |
 | --- | --- | --- |
@@ -41,11 +41,11 @@ Repository baseline inspected: main@16bcf1f1fe39d76eca510734a20d267ad651871d. Th
 
 Important unresolved distinctions: code exists versus acceptance passed; CI passed versus reviewed; merged versus deployed; report structure valid versus source verified; simulation result versus real-data evidence. Keep these distinctions visible in every status report.
 
-The current plan has no verified ledger of actual account expenditure, no production availability commitment and no profitability evidence. Do not enter zeros for unknown spending or turn unknown capacity into an ETA.
+Income target, investable capital, drawdown tolerance and withdrawal policy remain UNSET. Hypothetical revenue examples are not actual earnings or promises. Do not turn unknown capacity into an ETA.
 
 ## 3. Short-term delivery: first 30 days
 
-Day 1 is the next recorded delivery kickoff after adoption of this plan. Record its UTC timestamp once; do not reset it on restart. The windows below are proposed calendar checkpoints. Dependencies and evidence determine promotion.
+The delivery calendar is anchored to 22 September-21 October 2026 in UTC. These are planned dates, not evidence that a worker has started. Record actual starts separately and never reset Day 1 to hide a delay. The complete daily task/output/dependency schedule is in [DAILY_DELIVERY_PLAN.md](DAILY_DELIVERY_PLAN.md) and `planning/delivery_plan.json`. Dependencies and evidence determine promotion.
 
 | Window | Primary outcome | Acceptance evidence | Decision at checkpoint |
 | --- | --- | --- | --- |
@@ -74,7 +74,7 @@ These are investment and sequencing horizons, not a promise that elapsed calenda
 
 No automatic live milestone exists. A possible future small live pilot requires a separate written authorization defining broker, funding, loss limits, supervision, emergency stop and rollback. This handbook grants none of those permissions.
 
-Growth sequence: first stabilize one instrument and one end-to-end workflow; then generalize instrument/session/cost contracts; only then introduce additional markets. Do not copy a GBPJPY threshold or cost model into another market without validation. Commercialization is an option to investigate, not the current funded scope or a revenue forecast.
+Growth sequence: first stabilize one instrument and one end-to-end workflow; then generalize instrument/session/cost contracts; only then introduce additional markets. Do not copy a GBPJPY threshold or cost model into another market without validation. Commercialization is an option to investigate, not an assumed customer base or revenue forecast. Revenue gates are defined in section 9 and REVENUE_PLAN.md.
 
 ## 5. First delivery queue and ownership
 
@@ -88,6 +88,8 @@ Use existing issues and their evidence; do not create duplicates of broad audit 
 | 4 | Prevent unsupported local research dispatch, #41 | Integration development | Research cannot invoke legacy coding; actual report handoff test |
 | 5 | Close next relevant correctness/provenance defect, #40 | Quant/data/development | Narrow acceptance tests and evidence; epic remains open for unresolved work |
 | 6 | Reconcile family definitions and experiment design, #38 | Parsa + Niloofar specialties | Versioned registry and registered validation/search policy |
+
+The dated delivery plan refines this queue into 36 bounded records across 30 days, reusing existing GitHub issues plus #45 for revenue and #46 for session-range completeness. A daily row is a target, not an additional independent worker or guaranteed one-day fix.
 
 This ordering is dependency-aware: blocked release work does not prevent independent source research. A role label is not an assignment to an independently executing account. Record the actual executor and whether the run is interactive, scheduled, local or CI.
 
@@ -142,48 +144,29 @@ These retain the existing triage convention, not contractual SLAs. A scheduler t
 
 Each real delivery receipt contains UTC time, item, actor/mode, input and output SHA, action, actual tests/evidence, review attribution, merge/deployment state, blocker and next action. Do not infer that a scheduled run can write code because this interactive session can.
 
-Review progress at the next actual run after a material change and at a weekly checkpoint when a run occurs. Keep one concise owner summary: delivered, currently working, blocked, next, cost/quota status. No additional daily meeting or reporting-only agent is required.
+At the first actual run of each UTC day, reconcile yesterday's results and live GitHub evidence, read the nominal daily row, then select dependency-ready work. Preserve unfinished work rather than starting another item merely because the date changed. At the last actual run record delivered, carried over, blocked, next and changes to revenue-readiness assumptions. These are run-time responsibilities, not a new guaranteed daily service.
 
-Measure verified deliverables, P1 closure/reopening, review/merge wait, data coverage, reproducibility, experiment runtime/memory and documentation freshness. Establish observed throughput over the first week before projecting an end date. Reserve roughly 20% of planned capacity for rework and verification as an initial planning assumption; replace it with measured rework data. Never convert model response time into assumed 24-hour engineering capacity.
+`planning/delivery_plan.json` contains stable task IDs, priority, responsible function, original dates, dependencies and acceptance output. `planning/delivery_state.json` records actual execution receipts. `scripts/plan_day.py` provides a deterministic, read-only preview; it never launches workers, validates source truth or grants authority. Revalidate declared completion references against GitHub before work proceeds.
 
-## 9. Financial and resource plan
+For unexpected issues, deduplicate first, add an INC identifier and clear P1-P4 title, link the affected task, record impact and a safe stopping point. A P1 may request interruption of lower-priority work at a safe checkpoint; it does not forcibly cancel a worker or bypass CI. Carry the displaced task forward with its original date visible. Keep a 20% initial capacity buffer, review the next three days closely, and revise later days weekly. Details and the complete dated table are in DAILY_DELIVERY_PLAN.md.
 
-### 9.1 Approved envelope
+Measure verified deliverables, P1 closure/reopening, review/merge wait, data coverage, reproducibility, experiment runtime/memory and revenue-gate evidence. Establish observed throughput over the first week before projecting an end date. Never convert model response time into assumed 24-hour engineering capacity.
 
-Reporting currency is USD for service-budget comparison only; local cash costs keep their original currency and conversion date. Current authorized NEW service/API/data/hardware expenditure is USD 0; authorized trading capital is USD 0. These are caps, not verified actual expenditure. Actual invoices, remaining quotas, existing subscription allocations and local utility costs are UNKNOWN until reconciled. No access to private billing accounts is implied.
+## 9. Revenue model and path to income
 
-| Cost category | Current decision | Financial treatment |
-| --- | --- | --- |
-| Existing ChatGPT subscription | Use already available access only | Existing commitment; amount/allocation not supplied; no assumption of free API credit |
-| New model API or cloud agent | Do not activate | New-spend cap USD 0 |
-| VPS, paid hosting, larger runners | Do not provision | New-spend cap USD 0 |
-| Existing computer | Use only within available capacity | Hardware sunk cost plus electricity/wear; uptime is conditional |
-| GitHub standard public-repo CI | Use eligible existing workflow | Standard runner usage is free; storage, account quotas and larger-runner charges must be checked separately [W1] |
-| Market/news/forecast data | Only verified permitted no-fee access | No paid feed or requester-pays path; availability is not assumed |
-| Private mailbox/backups/storage | Prefer existing secure approved capacity | Check rights and quotas before use; no free-unlimited assumption |
-| Live capital, legal/commercial launch | Not activated | No capital allocation or revenue plan approved |
+The former expense-only section and zero-budget table have been removed. The full replacement is [REVENUE_PLAN.md](REVENUE_PLAN.md), tracked in issue #45.
 
-Stop before creating any metered resource whose cost control is unknown. Budget alerts are not assumed to be hard spending stops. Verify applicable account controls before enabling usage; inability to verify them blocks activation. Review official pricing before any later proposal. The public repository is not permission to publish private data, and a private repository is not automatically unlimited free compute. [W1]
+Primary route: income from the owner's own trading capital, after validated specialist/Core results, operational and risk evidence, and separate live authorization. Optional later route: read-only research/analytics subscriptions or business licensing after demand, data rights and support are validated. This does not turn the project into a SaaS product by default.
 
-### 9.2 Cost model and controls
+For own-capital trading, a simplified no-flow sensitivity is `monthly P&L = starting capital x assumed after-transaction-cost return`. At USD 50,000, illustrative monthly returns of -5%, 0%, +0.5% and +1.5% produce -2,500, 0, +250 and +750 dollars before operating charges and taxes. These are arithmetic scenarios, NOT forecasts, likely outcomes, capital recommendations or a bounded maximum loss. Deposits are not income, and profit is not automatically a safe withdrawal. [W4]
 
-Incremental cash cost = new-service invoices + incremental power/network/storage + newly purchased equipment. Economic project cost = incremental cash + allocated existing subscriptions + owner/reviewer time valued at an explicitly chosen rate + hardware allocation. Track these separately; do not claim the whole project costs zero because new hosting costs zero.
+For optional software revenue, hypothetical scenarios of 10 customers at USD 29, 30 at USD 49 and 100 at USD 79 produce USD 290, 1,470 and 7,900 gross monthly recurring revenue. These are pricing/demand hypotheses, not existing customers or sales forecasts. Recurring revenue excludes one-off work and differs from collected cash and net profit. [W5]
 
-Power estimate: kWh = measured average watts / 1000 x operating hours. Example assumption only: 120 W x 8 hours/day x 30 days = 28.8 kWh. Multiply by the actual local tariff; no tariff or electricity bill is asserted here.
+Revenue gates are: reliable research alpha; validated selection; shadow/paper record; separately approved real-money pilot or paid software pilot; then evidence-led expansion. A calendar date alone does not establish a revenue gate. No first-income date is promised before the inputs and evidence exist.
 
-Experiment estimate: required runs = eligible families x registered variants x temporal folds x stress cases, adjusted for caching and actual retries. Wall time depends on measured run time and safe concurrency. Forecast disk use from bytes per observation, actual coverage, compression and retained versions; reserve headroom before collection. Do not put a multi-year raw archive into GitHub Actions artifacts without a rights, capacity and billing review.
+Required owner inputs remain UNSET: investable capital/currency, desired monthly net income, tolerable drawdown, withdrawals versus reinvestment, jurisdiction and interest in the optional software route. Do not replace them with earlier hypothetical examples. Engineering can continue while these decisions remain open.
 
-Maintain a private financial ledger with date, supplier/category, committed amount, actual invoice, currency, exchange-rate source/date when needed, quota usage, approver and evidence. The public handbook stores only the approved envelope and sanitized totals. First-week financial action: inventory existing entitlements and measure one representative job, without adding services. Weekly: reconcile actuals and quota forecasts. Monthly: continue/replan/stop decision against delivered evidence, not sunk cost.
-
-### 9.3 Funding and business scenarios
-
-A: current zero-new-service research mode. Accept intermittent compute, bounded experiments and possible source limitations; do not promise continuous service.
-
-B: future reliability upgrade. Consider only after an observed bottleneck and owner funding approval. Prepare a current supplier quote, monthly hard cap, one-time migration cost, security implications and exit plan. Amount remains TBD/NOT_APPROVED; no service is purchased by this plan.
-
-C: future product/commercial investigation. Only after reproducible research: choose an intended customer/problem, rights to distribute outputs, jurisdictions, support obligations and realistic unit costs. Keep validation interviews separate from selling investment claims. No customers, revenue or profit forecast is assumed.
-
-Possible break-even analysis, only with real prices: paying customers needed = fixed monthly operating cost / (net revenue per customer - variable service/support cost), rounded up. If contribution margin is nonpositive, no finite break-even follows. Trading returns are uncertain and are not the project's funding source in this plan.
+Track owner goal, sensitivity assumptions, measured research results and actual earnings as separate fields. In the daily plan, R03 builds the assumptions register; G23/R08 reconcile it with actual evidence. Removing the old expense table does not authorize purchases, brokerage access, sales outreach or Live trading.
 
 ## 10. Risk, privacy, legal and continuity register
 
@@ -195,16 +178,17 @@ Possible break-even analysis, only with real prices: paying customers needed = f
 | Unattended execution unproved | Run recorded without deliverable | Arman: real scheduled receipts, capability diagnosis; #42 |
 | Private Telegram text exposed | Public mailbox or untrusted state marker | Security/operations: keep #29 draft, authenticate state and isolate private content |
 | False diversified winners | Correlated variants/full-history selection | Parsa: nested selection and redundancy/cost analysis; #38 |
-| Resource or quota exhaustion | Memory/disk/runner limit approached | Engineering/finance: bounded workloads, checkpoint and stop before paid overage |
+| Resource or quota exhaustion | Memory/disk/runner limit approached | Engineering: bounded workloads, checkpoint and verify any paid resource before activation |
 | Key-person/assistant dependency | Session/context loss or local machine off | Coordinator: repository receipts, versioned handoffs, verified restore and alternate authorized execution |
 | Stale documentation | Evidence changed without source revision | Custodian: update affected section/status; mark stale rather than reconstruct history |
+| Unsupported income expectation | Hypothetical returns or customer counts presented as forecasts | Owner/quant: distinguish scenarios, evidence and actual income; #45 |
 | Commercial/legal uncertainty | Plans to sell, distribute data or trade for others | Owner: determine jurisdiction, IP/data licenses and qualified legal/accounting review before launch |
 
 No jurisdiction is inferred from an estimated user location. This is a compliance work register, not a legal determination. Do not silently add an open-source license, publish licensed data or assume public source availability grants unrestricted commercial use.
 
 Security baseline: least privilege, secret storage outside code/reports, no private messages in public issues by default, and no untrusted pull-request code executing with broker or bot credentials. Authenticated author/app identity matters; a marker string is not authority.
 
-Backup/restore proposal: preserve immutable source and model manifests, take state snapshots at accepted checkpoints, keep an approved separate copy, and verify restore before releasing an operational build. A second folder on the same disk is not an independent backup. If no safe second storage exists under the budget, record continuity as blocked instead of claiming disaster recovery. Desired recovery point is the last accepted checkpoint; recovery time is measured by the first drill, not invented now.
+Backup/restore proposal: preserve immutable source and model manifests, take state snapshots at accepted checkpoints, keep an approved separate copy, and verify restore before releasing an operational build. A second folder on the same disk is not an independent backup. If no safe second storage exists, record continuity as blocked instead of claiming disaster recovery. Desired recovery point is the last accepted checkpoint; recovery time is measured by the first drill, not invented now.
 
 ## 11. Acceptance and the final-test contract
 
@@ -237,49 +221,54 @@ Incident response: preserve evidence, contain the unsafe action, identify the la
 
 ## 13. Living documentation and change control
 
-Canonical reading path: repository README -> this handbook -> linked evidence/contracts. PROJECT_STATUS.json is a dated, non-executable snapshot for concise status; it does not schedule work, grant authority or replace the runtime database. The Persian companion and exported Word document are human-readable views of this version. Exports are snapshots; GitHub history is the versioned record.
+Canonical reading path: repository README -> this handbook -> revenue plan, daily plan and linked evidence/contracts. PROJECT_STATUS.json is a dated, non-executable snapshot for concise status; it does not schedule work, grant authority or replace the runtime database. The delivery-plan preview is read-only; state evidence needs actual source verification. The Persian companion and exported Word document are human-readable views of this version. Exports are snapshots; GitHub history is the versioned record.
 
-Custodian: Arman function. The person/agent making a substantive change proposes the matching documentation update; the reviewer checks it. Update affected acceptance, interface, assumption, cost, risk and operating sections in the same PR, or link a bounded follow-up that blocks release when the omission is safety-critical. A typo-only change can declare 'documentation impact: none' with a reason.
+Custodian: Arman function. The person/agent making a substantive change proposes the matching documentation update; the reviewer checks it. Update affected acceptance, interface, assumption, revenue, risk and operating sections in the same PR, or link a bounded follow-up that blocks release when the omission is safety-critical. A typo-only change can declare 'documentation impact: none' with a reason.
 
-After an actual merge, source-validation result or deployment, update only the changed status fields with evidence. Do not rewrite the handbook on every heartbeat. At the next actual weekly review, roll up delivered work, remaining gates, financial/quota status and forecast changes. More than seven days without verifying the overview means REVIEW_REQUIRED, not automatically healthy. Historical evidence remains historically valid at its recorded revision.
+After an actual merge, source-validation result or deployment, update only the changed status fields with evidence. Do not rewrite the handbook on every heartbeat. At the next actual weekly review, roll up delivered work, remaining gates, revenue-readiness evidence and forecast changes. More than seven days without verifying the overview means REVIEW_REQUIRED, not automatically healthy. Historical evidence remains historically valid at its recorded revision.
 
 Versioning: patch for factual/status corrections; minor for reviewed compatible additions; major for scope, architecture, execution or acceptance changes requiring a decision. Record old/new assumptions and consequences. Existing tests, task immutability, data rights and authorization gates are not overridden by editing this document.
 
 Initial decision register:
 - D01: first milestone is a small real-data three-expert replay, not a falsely complete fifteen-family system.
 - D02: retain original S01-S15 identifiers pending a reviewed reconciliation with #38.
-- D03: no new paid services or trading capital; account actuals remain unknown until reconciled.
+- D03 (revised): replace expense-cap tables with income routes, evidence gates and explicit unvalidated scenarios; no purchase or trading permission is implied.
 - D04: one active product change and one bounded research question; no new agent by default.
 - D05: self-review is labelled; unattended work requires actual scheduled receipts.
 - D06: current main, proposed fixes and local deployment have distinct status.
 - D07: this handbook is a management baseline; policy/runtime reconciliation remains work under #42.
+- D08: anchor the daily calendar to 22 September 2026, preserve original dates and roll forward unfinished work with evidence.
 
-Change request template: problem; evidence; proposed change; affected interfaces/data/cost/risk; options including doing nothing; decision owner; acceptance and rollback; actual implementation reference. Run receipt template: time; item; actor/mode; source SHA; action/output; actual tests; review; merge/deployment; blocker; next step.
+Change request template: problem; evidence; proposed change; affected interfaces/data/revenue/risk; options including doing nothing; decision owner; acceptance and rollback; actual implementation reference. Run receipt template: time; item; actor/mode; source SHA; action/output; actual tests; review; merge/deployment; blocker; next step.
 
-Changelog 1.0: established short/long horizons, financial envelope, evidence gates, risk register, ownership and document-maintenance rules. Documentation delivery does not close #42 or prove any code, research pipeline or deployment complete.
+Changelog 1.1: replaced expense/zero-budget framing with the revenue model; added dated task records, read-only daily preview and dynamic-work handling. Changelog 1.0: established horizons, evidence gates, risk register, ownership and document-maintenance rules. Documentation delivery does not close #42 or prove any research pipeline, income or deployment complete.
 
 ## 14. Source register
 
-Repository evidence is recorded at the inspected revision or linked item. External service references were checked for planning on 22 September 2026 and must be rechecked before a financial or operational activation. No source is evidence of this project's profitability.
+Repository evidence is recorded at the inspected revision or linked item. External service references must be rechecked before a financial or operational activation. No source is evidence of this project's profitability.
 
-[R1] Product contract, baseline revision: https://github.com/mojtabashariatzade/trading-agent-lab/blob/16bcf1f1fe39d76eca510734a20d267ad651871d/docs/PROJECT_CONTRACT.md
+[R1] Product contract: https://github.com/mojtabashariatzade/trading-agent-lab/blob/16bcf1f1fe39d76eca510734a20d267ad651871d/docs/PROJECT_CONTRACT.md
 
-[R2] Task definitions, same baseline: https://github.com/mojtabashariatzade/trading-agent-lab/blob/16bcf1f1fe39d76eca510734a20d267ad651871d/planning/tasks.json
+[R2] Task definitions: https://github.com/mojtabashariatzade/trading-agent-lab/blob/16bcf1f1fe39d76eca510734a20d267ad651871d/planning/tasks.json
 
-[R3] Execution audit PR and review evidence: https://github.com/mojtabashariatzade/trading-agent-lab/pull/39
+[R3] Execution audit PR: https://github.com/mojtabashariatzade/trading-agent-lab/pull/39
 
-[R4] Remaining integrity work and scoped causality defect: https://github.com/mojtabashariatzade/trading-agent-lab/issues/40 and https://github.com/mojtabashariatzade/trading-agent-lab/issues/43
+[R4] Integrity work: https://github.com/mojtabashariatzade/trading-agent-lab/issues/40 and https://github.com/mojtabashariatzade/trading-agent-lab/issues/43
 
-[R5] Data-access investigation: https://github.com/mojtabashariatzade/trading-agent-lab/issues/37
+[R5] Data access: https://github.com/mojtabashariatzade/trading-agent-lab/issues/37
 
-[R6] Research-routing and delivery-management findings: https://github.com/mojtabashariatzade/trading-agent-lab/issues/41 and https://github.com/mojtabashariatzade/trading-agent-lab/issues/42
+[R6] Research/delivery findings: https://github.com/mojtabashariatzade/trading-agent-lab/issues/41 and https://github.com/mojtabashariatzade/trading-agent-lab/issues/42
 
-[R7] Fifteen-family competition scope: https://github.com/mojtabashariatzade/trading-agent-lab/issues/38
+[R7] Family competition: https://github.com/mojtabashariatzade/trading-agent-lab/issues/38
 
-[R8] Proposed PC-independent Telegram relay: https://github.com/mojtabashariatzade/trading-agent-lab/pull/29
+[R8] Telegram proposal: https://github.com/mojtabashariatzade/trading-agent-lab/pull/29
 
 [W1] GitHub Actions billing: https://docs.github.com/en/billing/concepts/product-billing/github-actions
 
-[W2] GitHub workflow scheduling limits: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
+[W2] Workflow scheduling: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
 
-[W3] OpenAI scheduled tasks and permissions: https://help.openai.com/en/articles/10291617-tasks-in-chatgpt
+[W3] Scheduled tasks: https://help.openai.com/en/articles/10291617-tasks-in-chatgpt
+
+[W4] CFTC hypothetical-performance limitations: https://www.cftc.gov/sites/default/files/opa/enf00/opa4397-00.htm
+
+[W5] Stripe MRR definition: https://stripe.com/resources/more/what-is-monthly-recurring-revenue
