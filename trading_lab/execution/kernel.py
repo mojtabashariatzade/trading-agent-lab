@@ -126,7 +126,10 @@ class TradeRequest:
         object.__setattr__(self, "side", _side(self.side))
         object.__setattr__(self, "stop_distance", _positive(self.stop_distance, "stop_distance"))
         object.__setattr__(self, "target_distance", _positive(self.target_distance, "target_distance"))
-        object.__setattr__(self, "timeout_at", _aware_utc(self.timeout_at))
+        timeout_at = _aware_utc(self.timeout_at)
+        if timeout_at.second or timeout_at.microsecond:
+            raise ValueError("timeout_at must be minute-aligned for M1 execution")
+        object.__setattr__(self, "timeout_at", timeout_at)
         object.__setattr__(self, "quantity", _positive(self.quantity, "quantity"))
         object.__setattr__(self, "slippage", _non_negative(self.slippage, "slippage"))
         object.__setattr__(
@@ -170,9 +173,10 @@ def entry_price(side: str, bid: float, ask: float, *, slippage: float = 0.0) -> 
     slip = _non_negative(slippage, "slippage")
     if bid > ask:
         raise ValueError("Crossed bid/ask")
-    if side_u == "BUY":
-        return ask + slip
-    return bid - slip
+    adjusted = ask + slip if side_u == "BUY" else bid - slip
+    if adjusted <= 0 or not isfinite(adjusted):
+        raise ValueError("slippage makes entry price invalid")
+    return adjusted
 
 
 def exit_price(side: str, bid: float, ask: float, *, slippage: float = 0.0) -> float:
@@ -183,9 +187,10 @@ def exit_price(side: str, bid: float, ask: float, *, slippage: float = 0.0) -> f
     slip = _non_negative(slippage, "slippage")
     if bid > ask:
         raise ValueError("Crossed bid/ask")
-    if side_u == "BUY":
-        return bid - slip
-    return ask + slip
+    adjusted = bid - slip if side_u == "BUY" else ask + slip
+    if adjusted <= 0 or not isfinite(adjusted):
+        raise ValueError("slippage makes exit price invalid")
+    return adjusted
 
 
 class ExecutionKernel:
@@ -428,7 +433,11 @@ class SinglePositionAccount:
         if self.position_open:
             raise RuntimeError("single-position account already has an open position")
         self.position_open = True
-        result = self.kernel.execute(request, entry, bars)
+        try:
+            result = self.kernel.execute(request, entry, bars)
+        except Exception:
+            self.position_open = False
+            raise
         self.history.append(result)
         if result.censored:
             # Missing tail means the position outcome is unresolved; it remains
