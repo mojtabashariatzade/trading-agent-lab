@@ -29,10 +29,20 @@ class RuntimeStatusTests(unittest.TestCase):
     def test_running_claims_agent_only_when_alive(self):
         db = Store(":memory:")
         db.set("paused", False)
-        db.save({"id": "T001", "state": "DEVELOPING", "attempt": 1, "role": "dev"})
+        db.save({"id": "T001", "state": "DEVELOPING", "attempt": 1, "role": "dev", "run_id": "run-1"})
         payload = build_status(db, pid=9, process_alive=True, auto_merge_safe=True, now=100.0)
         self.assertEqual(payload["status"], "RUNNING")
         self.assertEqual(payload["current_agent"], "Kian")
+        self.assertEqual(payload["run_id"], "run-1")
+
+    def test_launching_without_run_is_waiting_not_kian(self):
+        db = Store(":memory:")
+        db.set("paused", False)
+        db.save({"id": "T001", "state": "LAUNCHING_DEV", "attempt": 1, "role": "dev", "run_id": None})
+        payload = build_status(db, pid=9, process_alive=True, auto_merge_safe=True, now=100.0)
+        self.assertEqual(payload["status"], "WAITING")
+        self.assertIsNone(payload["current_agent"])
+        self.assertIn("no worker run_id", payload["waiting_reason"] or "")
 
     def test_blocked_on_waiting_approval(self):
         db = Store(":memory:")

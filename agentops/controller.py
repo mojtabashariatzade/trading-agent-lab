@@ -279,9 +279,11 @@ class Controller:
             uuid.NAMESPACE_URL,
             f"{self.cfg.repo_url}/{task['id']}/{task['attempt']}/{role}/sr{stuck}",
         ))
-        if not self.db.reserve(self.launch_quota_id(task, role), self.day(), self.cfg.max_daily_launches):
+        if self.paid_launch_cap_applies() and not self.db.reserve(
+            self.launch_quota_id(task, role), self.day(), self.cfg.max_daily_launches
+        ):
             self.touch_progress(task, f"daily_limit:{self.day()}:{self.db.launch_count(self.day())}")
-            self.event(task, "DAILY_LAUNCH_LIMIT", "Waiting for next UTC day. This is a count limit, NOT a monetary cap.")
+            self.event(task, "DAILY_LAUNCH_LIMIT", "Paid/cloud launch budget exhausted for this UTC day.")
             return
         task.update(agent_id=agent_id, run_id=None, role=role, launch_at=task.get("launch_at") or self.clock(), state="LAUNCHING_QA" if role == "qa" else "LAUNCHING_DEV")
         self.db.save(task)  # persist id before a possibly ambiguous paid API call
@@ -312,6 +314,48 @@ class Controller:
     def launch_quota_id(self, task: dict, role: str) -> str:
         """One daily slot per task/role/attempt — stuck restarts must not burn extra launches."""
         return f"{task['id']}:{role}:{int(task.get('attempt', 0))}:{self.day()}"
+
+    def paid_launch_cap_applies(self) -> bool:
+        """MAX_DAILY_LAUNCHES is a cloud/paid budget, not a local team-wide wall."""
+        return self.cfg.agent_runtime != "local"
+
+    def occupies_coding_worker(self, task: dict) -> bool:
+        """A live coding worker (or mid-create) occupies the shared worktree. Waiting does not."""
+        state = task.get("state")
+        if state in {"DEVELOPING", "REVIEWING", "CANCELLING", "MERGING"} and task.get("run_id"):
+            return True
+        if state in {"LAUNCHING_DEV", "LAUNCHING_QA"}:
+            if str(task.get("progress_fingerprint") or "").startswith("daily_limit:"):
+                return False
+            return True
+        return False
+
+    def reconcile_existing_delivery(self, task: dict) -> bool:
+        """If a valid PR already exists, resume at CI/QA — do not relaunch Kian from zero."""
+        if not task.get("pr"):
+            return False
+        if task.get("run_id") and task.get("state") in {"DEVELOPING", "REVIEWING"}:
+            return False
+        try:
+            pr = self.validate_pr(task)
+        except (ValueError, KeyError, ProviderError):
+            return False
+        head = pr["head"]["sha"]
+        ci, url = self.gh.ci(head)
+        task.update(
+            head_sha=head,
+            state="CI_WAIT",
+            ci_wait_at=task.get("ci_wait_at") or self.clock(),
+            ci_url=url,
+            run_id=None,
+            launch_at=None,
+            state_entered_at=self.clock(),
+            last_error=None,
+        )
+        self.touch_progress(task, f"CI_WAIT:{ci}:{head}")
+        self.db.save(task)
+        self.event(task, "RECONCILED_PR", f"{self.cfg.repo_url}/pull/{task['pr']} ci={ci}")
+        return True
 
     def recover_or_block(self, task: dict, reason: str, *, immediate: bool = False) -> None:
         """Auto-restart stuck/crashed workers up to max_stuck_retries; then BLOCK and continue queue."""
@@ -368,7 +412,14 @@ class Controller:
                 continue
             if str(task.get("progress_fingerprint") or "").startswith("daily_limit:"):
                 continue
-            last = float(task.get("last_progress_at") or task.get("launch_at") or now)
+            if state in {"DEVELOPING", "REVIEWING"} and task.get("run_id"):
+                continue
+            last = float(
+                task.get("last_progress_at")
+                or task.get("launch_at")
+                or task.get("state_entered_at")
+                or now
+            )
             stall = timeout
             if state in {"LAUNCHING_DEV", "LAUNCHING_QA"} and not task.get("run_id"):
                 stall = min(timeout, 90)
@@ -425,8 +476,10 @@ class Controller:
             uuid.NAMESPACE_URL,
             f"{self.cfg.repo_url}/research/{task['id']}/{attempt}/{task['owner_role']}",
         ))
-        if not self.db.reserve(f"research:{task['id']}:{attempt}:{self.day()}", self.day(), self.cfg.max_daily_launches):
-            self.event(task, "DAILY_LAUNCH_LIMIT", "Research waiting for next UTC day launch slot.")
+        if self.paid_launch_cap_applies() and not self.db.reserve(
+            f"research:{task['id']}:{attempt}:{self.day()}", self.day(), self.cfg.max_daily_launches
+        ):
+            self.event(task, "DAILY_LAUNCH_LIMIT", "Paid/cloud research launch budget exhausted for this UTC day.")
             return
         task.update(
             agent_id=agent_id,
@@ -649,6 +702,8 @@ class Controller:
             return
         if state in {"LAUNCHING_DEV", "LAUNCHING_QA"}:
             if not self.db.get("paused", True):
+                if state == "LAUNCHING_DEV" and self.reconcile_existing_delivery(task):
+                    return
                 self.launch(task, task["role"])
             return
         if state in {"DEVELOPING", "REVIEWING"}:
@@ -716,6 +771,16 @@ class Controller:
 
     def tick(self):
         self.watch_stuck_workers()
+        for task in self.db.tasks():
+            if (
+                task.get("state") in {"BLOCKED", "PENDING", "LAUNCHING_DEV"}
+                and task.get("pr")
+                and not task.get("run_id")
+            ):
+                try:
+                    self.reconcile_existing_delivery(task)
+                except (ValueError, KeyError, ProviderError):
+                    pass
         for task in self.db.research_tasks():
             if task["state"] in {
                 ResearchState.PENDING.value,
@@ -762,8 +827,8 @@ class Controller:
             for t in self.db.research_tasks()
         )
         tasks = self.db.tasks()
-        if any(t["state"] in {"DEVELOPING", "REVIEWING", "LAUNCHING_DEV", "LAUNCHING_QA", "CI_WAIT", "WAITING_APPROVAL", "MERGING", "CANCELLING"} for t in tasks):
-            return  # one delivery at a time; no branch races or uncontrolled spending
+        if any(self.occupies_coding_worker(t) for t in tasks):
+            return  # one live coding worker; CI/approval waits must not freeze independent work
         for task in tasks:
             if task["state"] == "BLOCKED" and task.get("retryable"):
                 if task["attempt"] < self.cfg.max_attempts:
@@ -780,7 +845,7 @@ class Controller:
         # Prefer clearing required research before starting implementation.
         for task in self.db.research_tasks():
             if task["state"] == ResearchState.PENDING.value:
-                if self.db.launch_count(self.day()) >= self.cfg.max_daily_launches:
+                if self.paid_launch_cap_applies() and self.db.launch_count(self.day()) >= self.cfg.max_daily_launches:
                     return
                 self.launch_research(task)
                 return
@@ -812,10 +877,13 @@ class Controller:
                         )
                         existing_kinds.add(kind_u)
                 self.event(task, "WAITING_RESEARCH", gate)
-                if created and self.db.launch_count(self.day()) < self.cfg.max_daily_launches:
+                if created and (
+                    not self.paid_launch_cap_applies()
+                    or self.db.launch_count(self.day()) < self.cfg.max_daily_launches
+                ):
                     self.launch_research(created[0])
                 return
-            if self.db.launch_count(self.day()) >= self.cfg.max_daily_launches:
+            if self.paid_launch_cap_applies() and self.db.launch_count(self.day()) >= self.cfg.max_daily_launches:
                 return
             base = self.ready_to_run()
             if "issue" not in task:

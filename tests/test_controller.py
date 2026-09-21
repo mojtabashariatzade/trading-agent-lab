@@ -83,27 +83,26 @@ class ControllerTests(unittest.TestCase):
         t['last_progress_at']=self.clock.now-301; self.db.save(t)
         self.c.cfg=replace(self.cfg,stuck_timeout_seconds=300,max_stuck_retries=3,stuck_backoff_seconds=15)
         self.c.tick(); t=self.db.task('T001')
+        self.assertEqual(t['state'],'DEVELOPING'); self.assertEqual(int(t.get('stuck_retries',0)),0)
+        self.cu.runs[t['run_id']]['status']='ERROR'
+        self.c.tick(); t=self.db.task('T001')
         self.assertEqual(t['state'],'LAUNCHING_DEV'); self.assertEqual(t['stuck_retries'],1)
         self.assertTrue(t.get('backoff_until',0) > self.clock.now)
         self.assertTrue(self.cu.cancelled)
-        self.assertIn('STUCK', t.get('last_error',''))
+        self.assertIn('ERROR', t.get('last_error',''))
     def test_stuck_retries_exhaust_then_block_and_continue(self):
         self.c.cfg=replace(self.cfg,stuck_timeout_seconds=300,max_stuck_retries=3,stuck_backoff_seconds=5)
-        self.launch()
+        self.c.handle(update('/resume'))
         for expected in (1, 2, 3):
             t=self.db.task('T001')
-            t['last_progress_at']=self.clock.now-999
-            t['backoff_until']=0
+            t.update(state='LAUNCHING_DEV', role='dev', run_id=None, last_progress_at=self.clock.now-999, backoff_until=0, progress_fingerprint='stale')
             self.db.save(t)
             self.c.tick()
             t=self.db.task('T001')
             self.assertEqual(t['stuck_retries'], expected)
             self.assertEqual(t['state'], 'LAUNCHING_DEV')
-            self.clock.now += 6
-            self.c.tick()
         t=self.db.task('T001')
-        t['last_progress_at']=self.clock.now-999
-        t['backoff_until']=0
+        t.update(state='LAUNCHING_DEV', run_id=None, last_progress_at=self.clock.now-999, backoff_until=0, progress_fingerprint='stale')
         self.db.save(t)
         self.c.tick()
         t=self.db.task('T001')

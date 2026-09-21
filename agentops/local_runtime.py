@@ -74,8 +74,27 @@ class LocalCursor:
             with self._lock:
                 self.runs[run_id].update(status="ERROR", result=str(exc)[:2000])
 
+    def _isolate(self, run_id: str, ref: str) -> Path:
+        """Never checkout the supervisor/Cursor workspace; use a detached worktree."""
+        base = Path(os.environ.get("LOCALAPPDATA") or ".") / "trading-agent-lab" / "worktrees"
+        name = "".join(ch if ch.isalnum() else "-" for ch in run_id)[:40]
+        path = base / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not (path / ".git").exists():
+            proc = subprocess.run(
+                ["git", "worktree", "add", "--detach", str(path), ref or "HEAD"],
+                cwd=str(self.repo_root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(f"git worktree add failed: {(proc.stderr or proc.stdout)[-800:]}")
+        return path
+
     def _run_kian(self, row: dict) -> dict:
         """Minimal scoped delivery under allowlisted prefixes; opens a real PR via gh."""
+        root = self._isolate(row["id"], row.get("ref") or "HEAD")
         branch = "local/kian-" + row["agent_id"][-8:]
         work = [
             "trading_lab/data/__init__.py",
@@ -83,9 +102,8 @@ class LocalCursor:
             "tests/added/test_bars_local_kian.py",
             "docs/research/KIAN_LOCAL_RUN.md",
         ]
-        self._git(["checkout", row["ref"]])
-        self._git(["checkout", "-B", branch])
-        data_init = self.repo_root / "trading_lab" / "data" / "__init__.py"
+        self._git(["checkout", "-B", branch], cwd=root)
+        data_init = root / "trading_lab" / "data" / "__init__.py"
         data_init.parent.mkdir(parents=True, exist_ok=True)
         if not data_init.exists():
             data_init.write_text('"""Market data helpers for research (no live feeds)."""\n', encoding="utf-8")
@@ -156,7 +174,7 @@ def build_m15_bars(quotes: list[Quote]) -> list[dict]:
 ''',
             encoding="utf-8",
         )
-        test = self.repo_root / "tests" / "added" / "test_bars_local_kian.py"
+        test = root / "tests" / "added" / "test_bars_local_kian.py"
         test.write_text(
             '''"""Local Kian smoke tests for M15 bar helpers."""
 import unittest
@@ -194,7 +212,7 @@ if __name__ == "__main__":
 ''',
             encoding="utf-8",
         )
-        note = self.repo_root / "docs" / "research" / "KIAN_LOCAL_RUN.md"
+        note = root / "docs" / "research" / "KIAN_LOCAL_RUN.md"
         note.parent.mkdir(parents=True, exist_ok=True)
         note.write_text(
             "# Kian local run (no Cursor Cloud)\n\n"
@@ -203,18 +221,18 @@ if __name__ == "__main__":
             encoding="utf-8",
         )
         for path in work:
-            self._git(["add", "-f", path] if path.startswith("trading_lab/data/") else ["add", path])
+            self._git(["add", "-f", path] if path.startswith("trading_lab/data/") else ["add", path], cwd=root)
         self._git(["-c", "user.name=Kian Local", "-c", "user.email=kian-local@users.noreply.github.com",
-                   "commit", "-m", "feat(data): local Kian M15 bar helpers (no Cursor Cloud)"])
-        self._git(["push", "-u", "origin", branch])
+                   "commit", "-m", "feat(data): local Kian M15 bar helpers (no Cursor Cloud)"], cwd=root)
+        self._git(["push", "-u", "origin", branch], cwd=root)
         pr_url = self._gh([
             "pr", "create",
             "--repo", self.github_repo,
             "--base", "main",
             "--head", branch,
             "--title", "feat(data): local Kian M15 bar helpers",
-            "--body", "Local Kian runtime delivery. No Cursor Cloud. No live trading.\n\nImplements scoped bar helpers + tests under allowlisted prefixes.",
-        ]).strip()
+            "--body",             "Local Kian runtime delivery. No Cursor Cloud. No live trading.\n\nImplements scoped bar helpers + tests under allowlisted prefixes.",
+        ], cwd=root).strip()
         if not pr_url.startswith("http"):
             # gh may print https URL on last line
             for line in pr_url.splitlines()[::-1]:
@@ -235,18 +253,19 @@ if __name__ == "__main__":
             if len(tail) == 40:
                 sha = tail.lower()
         ref = row.get("ref") or sha
+        root = self._isolate(row["id"], ref or "HEAD")
         if ref:
-            self._git(["fetch", "origin", ref])
-            self._git(["checkout", "--force", ref])
+            self._git(["fetch", "origin", ref], cwd=root)
+            self._git(["checkout", "--force", ref], cwd=root)
         proc = subprocess.run(
             ["python", "-m", "unittest", "discover", "-s", "tests", "-v"],
-            cwd=self.repo_root,
+            cwd=str(root),
             capture_output=True,
             text=True,
             timeout=600,
             check=False,
         )
-        tip = self._git(["rev-parse", "HEAD"]).strip()
+        tip = self._git(["rev-parse", "HEAD"], cwd=root).strip()
         head = sha or tip
         ok = proc.returncode == 0 and (not sha or tip == sha)
         verdict = "PASS" if ok else "FAIL"
@@ -267,10 +286,10 @@ if __name__ == "__main__":
             payload["verdict"] = "FAIL"
         return {"result": json.dumps(payload)}
 
-    def _git(self, args: list[str]) -> str:
+    def _git(self, args: list[str], cwd: Path | None = None) -> str:
         proc = subprocess.run(
             ["git", *args],
-            cwd=self.repo_root,
+            cwd=str(cwd or self.repo_root),
             capture_output=True,
             text=True,
             check=False,
@@ -279,10 +298,10 @@ if __name__ == "__main__":
             raise RuntimeError(f"git {args[0]} failed: {proc.stderr[-1000:]}")
         return proc.stdout
 
-    def _gh(self, args: list[str]) -> str:
+    def _gh(self, args: list[str], cwd: Path | None = None) -> str:
         proc = subprocess.run(
             ["gh", *args],
-            cwd=self.repo_root,
+            cwd=str(cwd or self.repo_root),
             capture_output=True,
             text=True,
             check=False,

@@ -7,15 +7,9 @@ import tempfile
 
 from .research_contracts import ResearchState
 
-ACTIVE_DEV = {
-    "DEVELOPING",
-    "REVIEWING",
-    "LAUNCHING_DEV",
-    "LAUNCHING_QA",
-    "CI_WAIT",
-    "MERGING",
-    "CANCELLING",
-}
+LIVE_WORKER = {"DEVELOPING", "REVIEWING"}
+WAITING_DEV = {"CI_WAIT", "LAUNCHING_DEV", "LAUNCHING_QA", "WAITING_APPROVAL", "MERGING"}
+ACTIVE_DEV = LIVE_WORKER | WAITING_DEV | {"CANCELLING"}
 ACTIVE_RESEARCH = {
     ResearchState.LAUNCHING.value,
     ResearchState.RUNNING.value,
@@ -76,6 +70,9 @@ def build_runtime_config(settings) -> dict:
         "selfheal_enabled": True,
         "max_selfheal_repairs": 3,
         "max_daily_launches": settings.max_daily_launches,
+        "paid_launch_cap_applies": settings.agent_runtime != "local",
+        "worker_engine": "local_cursor" if settings.agent_runtime == "local" else "cursor_cloud",
+        "worker_human_required": settings.agent_runtime != "local",
         "max_attempts": settings.max_attempts,
         "max_run_seconds": settings.max_run_seconds,
         "max_phase": settings.max_phase,
@@ -157,9 +154,13 @@ def build_status(
     pending_r = [t for t in research if t.get("state") == ResearchState.PENDING.value]
     done = [t for t in tasks if t.get("state") == "DONE"]
 
-    current = active[0] if active else (active_r[0] if active_r else None)
+    live = [t for t in tasks if t.get("state") in LIVE_WORKER and t.get("run_id")]
+    waiting_dev = [t for t in tasks if t.get("state") in WAITING_DEV]
+    waiting_dev.extend(t for t in tasks if t.get("state") in LIVE_WORKER and not t.get("run_id"))
+    current = live[0] if live else (active_r[0] if active_r else (waiting_dev[0] if waiting_dev else None))
     current_task = current["id"] if current else None
-    current_agent = _agent_label(current) if current else None
+    live_run = bool(current and current.get("run_id") and current.get("state") in LIVE_WORKER)
+    current_agent = _agent_label(current) if current and live_run else None
     if not process_alive:
         current_agent = None
 
@@ -191,22 +192,50 @@ def build_status(
 
     last_completed = done[-1]["id"] if done else None
 
+    waiting_reason = None
+    next_action = None
+    next_check_at = None
+    if current:
+        fp = str(current.get("progress_fingerprint") or "")
+        if current.get("state") == "CI_WAIT":
+            waiting_reason = f"{current['id']} waiting on CI for PR {current.get('pr')}"
+            next_action = "launch Negar QA when CI is PASS"
+            next_check_at = _iso(now + 30)
+        elif fp.startswith("daily_limit:"):
+            waiting_reason = f"Paid/cloud launch budget exhausted ({fp})"
+            next_action = "retry after next UTC day or when budget remains"
+            next_check_at = _iso(now + 60)
+        elif current.get("state") in {"LAUNCHING_DEV", "LAUNCHING_QA"} and not current.get("run_id"):
+            waiting_reason = f"{current['id']} launching; no worker run_id yet"
+            next_action = "complete create() or recover after launch stall"
+            next_check_at = _iso(now + 30)
+        elif current.get("state") == "WAITING_APPROVAL":
+            waiting_reason = blocker_reason
+            next_action = "owner approval or auto-merge if reasons clear"
     if not process_alive:
         status = "STOPPED"
-    elif paused and not active and not active_r:
+    elif paused and not live and not active_r:
         status = "STOPPED"
-    elif active or active_r:
+    elif live or active_r:
         status = "RUNNING"
+    elif waiting_dev and not waiting:
+        status = "WAITING"
     elif waiting or blocked or blocked_r:
         status = "BLOCKED"
     else:
         status = "IDLE"
+        next_action = next_action or ("start next ready queued task" if pending else "no authorized executable work")
 
     return {
         "status": status,
         "paused": paused,
         "current_task": current_task,
         "current_agent": current_agent,
+        "run_id": (current or {}).get("run_id"),
+        "last_progress_at": _iso((current or {}).get("last_progress_at")),
+        "waiting_reason": waiting_reason,
+        "next_action": next_action,
+        "next_check_at": next_check_at,
         "last_heartbeat_at": _iso(now),
         "last_heartbeat_unix": now,
         "last_completed_task": last_completed,
@@ -228,7 +257,8 @@ def build_status(
             "pending": len(pending),
             "blocked": len(blocked) + len(blocked_r),
             "waiting_approval": len(waiting),
-            "active": len(active) + len(active_r),
+            "active": len(live) + len(active_r),
+            "waiting": len(waiting_dev),
         },
         "live_trading": False,
         "broker_access": False,
