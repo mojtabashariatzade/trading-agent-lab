@@ -1,56 +1,93 @@
-# Status receipt — autonomous-by-default + persistent supervisor
+# Bootstrap / control-plane receipt
 
-Date: 2026-09-21. No Cursor Cloud. No live trading. No broker access.
+Date: 2026-09-21. No Live trading. No broker access. No Cursor Cloud required for this receipt.
 
-## Operating model
-- Normal development/research/tests/PRs: auto-merge when CI green + Negar PASS + no high-risk files.
-- Human approval only for: live trading, broker, secrets, paid spend, destructive ops, production deploy, security/branch-protection, irreversible data.
-- Supervisor runs as a real OS process independent of the Cursor chat window.
-
-## How to start / monitor (Windows)
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\start-supervisor.ps1
-powershell -ExecutionPolicy Bypass -File scripts\check-supervisor-status.ps1
-```
-
-## Three facts to verify it is alive
+## Repository
 
 | Item | Value |
 |---|---|
-| Main process name | `python` (`python.exe`) |
-| Supervisor command | `python -m agentops.supervisor` |
-| Status file | `%LOCALAPPDATA%\trading-agent-lab\status\runtime_status.json` |
+| URL | https://github.com/mojtabashariatzade/trading-agent-lab |
+| Visibility | **PUBLIC** (intentional; do not change to private) |
+| Default branch | `main` |
+| main SHA (fetched this receipt) | `eb8ce07c7f1b2e67526998c9e3f9aff56a9390ea` |
+| Active workflow file | `.github/workflows/ci.yml` (`research-ci`) |
 
-Also: Config file (non-sensitive flags only)
-`%LOCALAPPDATA%\trading-agent-lab\status\runtime_config.json`
+## Branch protection (`main`) — verified via API
 
-## Monitoring policy (no approval needed)
-- Read-only checks (`Get-Content`, `Get-Process`) on status/config/logs/pid are always allowed.
-- Never open `secrets.env` for heartbeat or status.
-- Trust `runtime_status.json` + alive PID over the Cursor chat UI.
+| Rule | Status |
+|---|---|
+| Force push blocked | YES (`allow_force_pushes=false`) |
+| Branch deletion blocked | YES (`allow_deletions=false`) |
+| Required status check | `qa` (strict / up-to-date with base) |
+| Required PR reviews | YES (`required_approving_review_count=1`, `dismiss_stale_reviews=true`) |
+| Enforce admins | NO (admins can still bypass — documented limitation) |
+| Rulesets | none configured (classic branch protection in use) |
+| GitHub “Negar approval” check | **NOT created** — Negar is a software role, not a GitHub human |
 
-## Watchdog
-- Stuck timeout: 5 minutes (`STUCK_TIMEOUT_SECONDS=300`)
-- Max automatic stuck/crash retries: 3 (then BLOCKED, continue queue)
-- Supervisor OS restart: `scripts\register-supervisor-autostart.ps1` (Task Scheduler)
+## CI workflow hygiene (`.github/workflows/ci.yml`)
 
-## Cursor chat must not block
-- Use `scripts\ensure-supervisor.ps1` only (exits in ~1s after DETACHED_OK).
-- Never `tail -f` / `Get-Content -Wait` on supervisor logs from Cursor.
-- Monitor via finite `runtime_status.json` snapshots only.
+| Item | Status |
+|---|---|
+| `permissions.contents` | `read` |
+| `pull_request_target` | absent |
+| Self-hosted runner | absent (`ubuntu-24.04`) |
+| `persist-credentials` | `false` |
+| Protected vs candidate tests | separate interpreter steps |
+| Repo secrets exposed to candidate | none declared in workflow |
 
-## Self-heal
-- Failure-pattern registry: `%LOCALAPPDATA%\trading-agent-lab\status\failure_patterns.json`
-- Maintenance reports: `%LOCALAPPDATA%\trading-agent-lab\status\maintenance\`
-- Max autonomous repairs per failure class: **3** then `SELF_HEAL_BLOCKED` (counters persist across restart; reset only after a recorded fix, not on a timer)
-- Launching without a `run_id` is not a heal and is not reported as `RUNNING / Kian`
-- `MAX_DAILY_LAUNCHES` is a cloud/paid budget. Local `LocalCursor` workers are not a daily team wall
-- Ready PRs resume at CI/QA; Kian is not relaunched for the same delivery
-- Independent ready tasks continue while another task waits on CI, approval, or a hard block
-- After CI+QA PASS, allowlisted self-heal files are auto-committed and pushed
-- Never auto-modifies live trading / broker / secrets / spend / security without approval
+## Test counts (this machine, same session)
 
-## Notes
-- PC sleep/shutdown stops local execution until the machine wakes (Task Scheduler/Startup resumes when logged on).
-- Heartbeat writes at least every 5 minutes (`HEARTBEAT_SECONDS=300`).
-- Telegram status mirror is optional.
+| Suite | Result |
+|---|---|
+| Full `unittest discover -s tests` | OK (175+ after control-plane additions; re-run for exact) |
+| Protected suite | OK (~119) |
+| Candidate `tests/added` | OK (~45+) |
+| `compileall agentops trading_lab` | exit 0 |
+
+## Open / closed PRs (control-plane cleanup)
+
+Closed as superseded (with comments):
+
+- `#5` → superseded by merged `#7` (M15 bars)
+- `#6` → superseded by merged `#7`
+- `#12` → superseded by merged `#13` / `eb8ce07…`
+
+Kept open:
+
+- `#8` draft — autonomous supervisor / agentops (must stay draft until gates below)
+- `#14` — T101 parallel autonomy probe (still useful; CI previously green)
+- Also observed open (not in original close list): `#16` T003 scaffold, `#17` T102 probe — leave unless later superseded
+
+## PR `#8` gates (not merge-ready until all true)
+
+- [ ] Latest head CI `research-ci` / `qa` GREEN
+- [ ] Feature behavior verified on this PC
+- [ ] Branch up to date with `main`
+- [ ] Negar QA evidence artifact for **exact** head SHA
+- [ ] Remains draft until owner promotes
+
+## Negar QA mechanism
+
+- Module: `agentops/qa_evidence.py`
+- Artifact dir: `%LOCALAPPDATA%\trading-agent-lab\status\negar_qa\`
+- Also posted as a fenced JSON PR comment when CI+QA PASS
+- Invalid if PR head SHA changes
+- Not a separate GitHub human reviewer
+
+## Duplicate PR prevention
+
+- `GitHub.find_open_pr_number` / `find_open_prs`
+- `Controller.bind_existing_open_pr` before relaunch
+- `LocalCursor._find_existing_pr` before `gh pr create`
+- Tests: `tests/added/test_duplicate_pr_prevention.py`
+
+## Operating notes
+
+- Supervisor: `python -m agentops.supervisor` (detached via `scripts/start-supervisor.ps1`)
+- Status: `%LOCALAPPDATA%\trading-agent-lab\status\runtime_status.json`
+- Telegram / Docker / Cursor Cloud / broker / Live: **not** claimed complete
+
+## Docs updated
+
+- `LOCAL_VALIDATION.md`: YES (this cleanup)
+- `BOOTSTRAP_RECEIPT.md`: YES (this file)
