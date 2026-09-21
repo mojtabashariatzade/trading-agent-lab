@@ -9,6 +9,7 @@ from typing import Iterable, Sequence
 
 
 M1 = timedelta(minutes=1)
+EXECUTION_MODEL_VERSION = "m1-2.0.0"
 
 
 def _aware_utc(value: datetime) -> datetime:
@@ -94,7 +95,8 @@ class M1Bar:
             raise ValueError("Invalid ask low")
         if clean["bid_low"] > clean["bid_high"] or clean["ask_low"] > clean["ask_high"]:
             raise ValueError("Invalid OHLC range")
-        if clean["bid_open"] > clean["ask_open"] or clean["bid_close"] > clean["ask_close"]:
+        if any(clean["bid_" + field] > clean["ask_" + field]
+               for field in ("open", "high", "low", "close")):
             raise ValueError("Crossed bid/ask bar")
         object.__setattr__(self, "start", start)
         for name, value in clean.items():
@@ -202,6 +204,8 @@ class ExecutionKernel:
         entry: Quote,
         bars: Sequence[M1Bar] | Iterable[M1Bar],
     ) -> TradeResult:
+        if entry.at.second or entry.at.microsecond:
+            raise ValueError("entry must be minute-aligned for M1 execution")
         if request.timeout_at <= entry.at:
             raise ValueError("timeout_at must be after entry")
         rows = list(bars)
@@ -228,13 +232,25 @@ class ExecutionKernel:
         else:
             stop = px_in + request.stop_distance
             target = px_in - request.target_distance
-        if stop <= 0 or target <= 0:
+        if not all(isfinite(x) and x > 0 for x in (stop, target)):
             raise ValueError("invalid stop/target price")
 
         entry_commission = request.commission_per_side * request.quantity
         risk_amount = request.stop_distance * request.quantity
+        if not isfinite(risk_amount) or not isfinite(entry_commission):
+            raise ValueError("Non-finite risk or commission")
 
+        expected_start = entry.at
         for bar in rows:
+            # An unobserved minute may already have hit either barrier. Never
+            # use a later observed target/stop to invent the missing path.
+            if bar.start != expected_start:
+                return self._censored(
+                    request=request, entry=entry, px_in=px_in, stop=stop,
+                    target=target, risk_amount=risk_amount,
+                    entry_commission=entry_commission,
+                )
+            expected_start = bar.end
             # With minute-aligned timeouts, a timeout at the bar start exits at
             # the executable opening quote before any intrabar TP/SL path.
             if request.timeout_at < bar.start:
@@ -270,6 +286,20 @@ class ExecutionKernel:
                 stop_hit = bar.ask_high >= stop
                 target_hit = bar.ask_low <= target
                 stop_gap = bar.ask_open >= stop
+
+            # The opening quote precedes every unknown intraminute path.
+            # SL-first applies only when neither barrier resolved at the open.
+            open_price = bar.bid_open if request.side == "BUY" else bar.ask_open
+            target_at_open = (open_price >= target if request.side == "BUY"
+                              else open_price <= target)
+            if stop_gap or target_at_open:
+                return self._resolved(
+                    request=request, entry=entry, px_in=px_in, stop=stop,
+                    target=target, exit_at=bar.start,
+                    raw_exit=open_price if stop_gap else target,
+                    reason=ExitReason.SL if stop_gap else ExitReason.TP,
+                    risk_amount=risk_amount, ambiguous=False,
+                )
 
             if stop_hit and target_hit:
                 # M1 path is unknowable. Choose the conservative loss outcome.
@@ -366,16 +396,22 @@ class ExecutionKernel:
         risk_amount: float,
         ambiguous: bool,
     ) -> TradeResult:
+        # TP is a resting limit-order assumption, not a market exit.
+        # A conservative fill at the limit has no favorable price improvement;
+        # adverse market slippage still applies to SL and TIMEOUT.
+        slip = 0.0 if reason == ExitReason.TP else request.slippage
         if request.side == "BUY":
-            px_out = raw_exit - request.slippage
+            px_out = raw_exit - slip
             gross = (px_out - px_in) * request.quantity
         else:
-            px_out = raw_exit + request.slippage
+            px_out = raw_exit + slip
             gross = (px_in - px_out) * request.quantity
         if px_out <= 0 or not isfinite(px_out):
             raise ValueError("slippage makes exit price invalid")
         commission = 2.0 * request.commission_per_side * request.quantity
         net = gross - commission
+        if not all(isfinite(x) for x in (gross, commission, net, net / risk_amount)):
+            raise ValueError("Non-finite trade accounting")
         return TradeResult(
             side=request.side,
             entry_at=entry.at,
@@ -444,6 +480,9 @@ class SinglePositionAccount:
     ) -> TradeResult:
         if self.position_open:
             raise RuntimeError("single-position account already has an open position")
+        if self.history and self.history[-1].exit_at is not None:
+            if entry.at < self.history[-1].exit_at:
+                raise RuntimeError("entry overlaps the previous trade's execution interval")
         self.position_open = True
         try:
             result = self.kernel.execute(request, entry, bars)
@@ -454,6 +493,8 @@ class SinglePositionAccount:
         if result.censored:
             # Missing tail means the position outcome is unresolved; it remains
             # open and blocks subsequent trades rather than inventing a close.
+            # Entry fees were paid even though the mark-to-market P&L is unknown.
+            self.cash -= result.commission_paid
             return result
         self.cash += float(result.net_pnl)
         self.position_open = False
