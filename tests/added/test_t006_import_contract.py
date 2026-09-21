@@ -106,6 +106,18 @@ class HistoricalImportContractTests(unittest.TestCase):
                 note="invalid downloaded claim",
             )
 
+    def test_string_state_cannot_bypass_download_evidence_gate(self):
+        with self.assertRaisesRegex(ValueError, "state must be a SamplingState"):
+            SamplingReport(
+                provider="Dukascopy",
+                provider_version="documented-format-v1",
+                state="downloaded",  # type: ignore[arg-type]
+                terms_checked_at_utc=None,
+                terms_allow_automated_sample=None,
+                manifest=None,
+                note="must not be accepted as a downloaded claim",
+            )
+
     def test_naive_coverage_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "timezone-aware UTC"):
             build_local_manifest(

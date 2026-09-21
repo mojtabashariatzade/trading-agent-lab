@@ -13,7 +13,8 @@ credential, paid-data, or live-trading capability.
 - Verification re-hashes the local artifact and fails after content or path changes.
 - Sampling reports use one explicit state: `downloaded` or `unverified`.
   A downloaded claim requires a matching manifest plus a recorded UTC terms check
-  that explicitly allowed the automated sample.
+  that explicitly allowed the automated sample. Untyped string states are rejected
+  so callers cannot bypass this evidence gate.
 - Original macro releases and revisions stay separate. If the original release is
   missing, the importer raises instead of substituting a later revised value.
 
@@ -25,6 +26,12 @@ format/version and a current provider-terms decision. It must write only below
 `real-observations/`, preserve bid/ask and source timestamps, record actual—not
 requested—coverage, and enumerate gaps. It must then create and verify the SHA-256
 manifest before any downstream use.
+
+The generic file hasher cannot infer semantic coverage, record counts, or gaps from
+an arbitrary provider format. Those fields remain adapter-supplied metadata and
+must be derived by the future format-specific parser; this PR validates their UTC,
+range, ordering, storage, and checksum invariants but does not claim content-level
+coverage verification.
 
 This PR does not implement HTTP, browser automation, scraping, retries, or bulk
 history acquisition. It does not claim that Dukascopy terms permit automation.

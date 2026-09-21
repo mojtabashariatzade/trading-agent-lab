@@ -74,6 +74,8 @@ class ArtifactManifest:
     def __post_init__(self) -> None:
         _required_text(self.provider, "provider")
         _required_text(self.provider_version, "provider_version")
+        if not isinstance(self.storage_kind, StorageKind):
+            raise ValueError("storage_kind must be a StorageKind")
         _require_utc(self.coverage_start_utc, "coverage_start_utc")
         _require_utc(self.coverage_end_utc, "coverage_end_utc")
         if self.coverage_start_utc >= self.coverage_end_utc:
@@ -198,6 +200,8 @@ class SamplingReport:
         _required_text(self.provider, "provider")
         _required_text(self.provider_version, "provider_version")
         _required_text(self.note, "note")
+        if not isinstance(self.state, SamplingState):
+            raise ValueError("state must be a SamplingState")
         if self.terms_checked_at_utc is not None:
             _require_utc(self.terms_checked_at_utc, "terms_checked_at_utc")
         if self.state is SamplingState.DOWNLOADED:
