@@ -7,7 +7,7 @@ from enum import Enum
 
 from trading_lab.fundamentals import EconomicRelease
 
-from .imports import AcquisitionStatus, DataManifest
+from .imports import AcquisitionStatus, DataClass, DataManifest
 
 
 class TermsStatus(str, Enum):
@@ -133,6 +133,8 @@ class DukascopySamplingAdapter:
             raise ValueError("Provider mismatch")
         if plan.terms_status != TermsStatus.VERIFIED_ALLOWED:
             raise PermissionError("Cannot mark sample downloaded before terms are verified allowed")
+        if manifest.data_class != DataClass.REAL_OBSERVATION:
+            raise ValueError("Provider samples must be stored as REAL_OBSERVATION, not fixtures")
         return SamplingReport(
             provider_id=self.provider_id,
             adapter_version=self.adapter_version,
