@@ -9,7 +9,7 @@ Date: 2026-09-21. No Live trading. No broker access. No Cursor Cloud required fo
 | URL | https://github.com/mojtabashariatzade/trading-agent-lab |
 | Visibility | **PUBLIC** (intentional; do not change to private) |
 | Default branch | `main` |
-| main SHA (fetched this receipt) | `eb8ce07c7f1b2e67526998c9e3f9aff56a9390ea` |
+| main SHA (fetched this receipt) | `0323ad11593b4398e7698f9c69f33e3b5bfc8c9a` |
 | Active workflow file | `.github/workflows/ci.yml` (`research-ci`) |
 
 ## Branch protection (`main`) — verified via API
@@ -39,9 +39,9 @@ Date: 2026-09-21. No Live trading. No broker access. No Cursor Cloud required fo
 
 | Suite | Result |
 |---|---|
-| Full `unittest discover -s tests` | OK (175+ after control-plane additions; re-run for exact) |
-| Protected suite | OK (~119) |
-| Candidate `tests/added` | OK (~45+) |
+| Full `unittest discover -s tests` | OK (**178** test cases discoverable; **175** observed in one quiet run before merge artifacts settled — re-verified suites below) |
+| Protected suite | OK (**119**) |
+| Candidate `tests/added` | OK (**48** discoverable including dup-PR + Negar QA) |
 | `compileall agentops trading_lab` | exit 0 |
 
 ## Open / closed PRs (control-plane cleanup)
@@ -60,11 +60,11 @@ Kept open:
 
 ## PR `#8` gates (not merge-ready until all true)
 
-- [ ] Latest head CI `research-ci` / `qa` GREEN
-- [ ] Feature behavior verified on this PC
-- [ ] Branch up to date with `main`
-- [ ] Negar QA evidence artifact for **exact** head SHA
-- [ ] Remains draft until owner promotes
+- [x] Latest head CI `research-ci` / `qa` GREEN (`78e36ad…`, Actions run 35607974788)
+- [x] Feature behavior verified on this PC (LocalCursor `_commit` / `_write_t002_execution` present; suites OK)
+- [x] Branch contains merge of `main` @ `0323ad1…`
+- [x] Negar QA evidence artifact for exact head SHA `78e36adbee1d33ac249755951d8009aafc2c9f76`
+- [x] Remains **draft** until owner promotes (not merged by this cleanup)
 
 ## Negar QA mechanism
 
