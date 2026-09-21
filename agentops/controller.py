@@ -337,6 +337,20 @@ class Controller:
         if task.get("run_id") and task.get("state") in {"DEVELOPING", "REVIEWING"}:
             return False
         try:
+            raw = self.gh.pr(task["pr"])
+            if raw.get("merged"):
+                head = (raw.get("head") or {}).get("sha") or task.get("head_sha")
+                task.update(
+                    state="DONE",
+                    head_sha=head,
+                    merge_sha=raw.get("merge_commit_sha") or raw.get("mergeCommit") or head,
+                    done_at=self.clock(),
+                    run_id=None,
+                    last_error=None,
+                )
+                self.db.save(task)
+                self.event(task, "DONE", f"Reconciled already-merged PR: {self.cfg.repo_url}/pull/{task['pr']}")
+                return True
             pr = self.validate_pr(task)
         except (ValueError, KeyError, ProviderError):
             return False
