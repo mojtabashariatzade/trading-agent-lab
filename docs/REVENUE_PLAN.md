@@ -1,72 +1,61 @@
-# Revenue model and path to income
+# Trading profit and account-performance plan
 
-Version 1.1 | 22 September 2026 | Owner-facing commercial decision record
+Version 1.2 | 22 September 2026 | Replaces the out-of-scope sales plan
 
-## 1. What the project is trying to earn
+## 1. The income objective
 
-The primary route is income from the owner's own trading capital, after the system demonstrates a repeatable edge and receives separate authorization for actual trading. The project must not be silently turned into a subscription business instead. A second, optional route is selling read-only research/analytics software after validating a genuine customer need. Licensing to a business is a later option; trading other people's money, copy trading and paid trade recommendations are not part of the currently authorized product.
+The system is intended to trade the owner's account automatically: observe markets, decide whether to open LONG or SHORT, size a permitted position, execute it, manage it, exit it and reconcile its net profit or loss. PASS, WAIT and DATA_INSUFFICIENT are legitimate decisions when entry conditions are absent. The intended income is net P&L from those trades.
 
-This replaces the former expense/zero-budget table. Removing that table does not authorize purchases, account opening, brokerage access or Live activation. The remaining discussion of fees is necessary to distinguish revenue from profit, not a new expense budget.
+Subscription sales, software licensing, analytics customers, signal sales, sales funnels and recurring customer revenue are OUT OF SCOPE, not alternative income routes. Their earlier inclusion was an assistant planning error. They must not return as fallback work when trading research is blocked. Reports and dashboards exist to observe and control the trading system, not to create a separate business.
 
-## 2. Primary route: own-capital trading
+Profit is the objective, not an established result. Research, historical replay, unseen evaluation, shadow and paper execution are stages towards this automated trader. A research report or a paper balance is not actual account income. No live adapter, funded account or profitable model is activated or claimed by this document.
 
-Income depends on capital, a validated after-transaction-cost return distribution, drawdowns, operational reliability and withdrawals. Deposits are not revenue; unrealized gains and equity recovery are not automatically cash available to withdraw. Backtests and paper results are not actual earnings. Simulated performance can differ substantially from actual trading; the CFTC explicitly cautions against presenting simulations as actual performance. [1]
+## 2. Required trading loop
 
-The following is an arithmetic sensitivity example, NOT a forecast, return target, likelihood estimate or recommended capital allocation. The returns are assumed after transaction costs but before operating charges and taxes. The losing case is not a worst-case loss limit. Larger losses are possible.
+1. Ingest permitted price, session, macro/news and relevant cross-market observations with their actual availability times.
+2. Build causal market state and obtain eligible specialist proposals. Course-derived and learned representations remain candidates subject to validation.
+3. Select LONG, SHORT, PASS or WAIT with an explicit reason and expiry. Keep data-insufficient states separate from a directional opinion.
+4. Apply deterministic pre-trade risk, exposure, cash/margin, spread and order-validity checks. Model confidence cannot override a rejection.
+5. Submit through a mode-specific execution adapter: replay first, then shadow/paper, and only later an independently enabled broker adapter.
+6. Reconcile acknowledgement, partial fills, rejection, cancellation and position state. Retries must not duplicate an order. A timeout does not establish that an order was not filled.
+7. Manage open positions under their registered strategy and independent risk rules: protective exits, time/structure invalidation and any validated staged targets or breakeven actions. Unknown course parameters remain unknown.
+8. Close/reduce positions and reconcile fills, balance, equity and realized/unrealized P&L. Persist sufficient state for recovery without reopening the same trade after restart.
 
-| Example account capital | Losing month -5% | Flat month 0% | Illustrative +0.5% month | Illustrative +1.5% month |
-| --- | ---: | ---: | ---: | ---: |
-| USD 10,000 | -500 | 0 | 50 | 150 |
-| USD 50,000 | -2,500 | 0 | 250 | 750 |
-| USD 100,000 | -5,000 | 0 | 500 | 1,500 |
+LONG/SHORT describes the position objective; BUY/SELL describes an order side. A BUY may open a long or close a short. Reversing a position requires a tested reconciliation policy, not simply changing the side label. Entry PASS does not stop management of a position already open. A global stop policy must separately specify stopping entries and managing existing exposure.
 
-Formula for the simplified no-flow scenario: monthly trading P&L = starting capital x net trading return. With deposits/withdrawals during the period, use time-weighted performance and separately reconcile cash flows instead of treating added capital as strategy gains.
+These are target requirements. The present replay and decision seeds implement only part of this lifecycle; their existence does not establish a working broker loop.
 
-For a desired withdrawal of USD 1,000 per month, the arithmetic capital requirement would be USD 200,000 at an assumed 0.5% monthly return or about USD 66,667 at 1.5%, before operating charges, taxes and reserve needs. Neither assumption is established for this system. If sustainable net returns are nonpositive, no capital amount solves the income target by this formula. Do not increase leverage or choose an optimistic assumed return just to make the required capital look smaller.
+## 3. What the financial report must measure
 
-Track realized P&L, marked-to-market equity, fees, drawdown, longest recovery interval and withdrawals separately. A withdrawal/reinvestment policy and drawdown reserve must be chosen before relying on trading proceeds for recurring living expenses. A profitable month is not evidence of a salary-like income stream.
+| Measure | Required separation |
+| --- | --- |
+| Closed-trade net P&L | Long versus short; strategy/version; instrument; actual versus simulated; account currency |
+| Open exposure and equity | Marked-to-market unrealized P&L, outstanding orders, reserved margin and position age |
+| Trading frictions | Spread once, commissions, slippage, financing/rollover and conversion timing; no double subtraction |
+| Risk | Drawdown, loss streaks, recovery time, exposure and limit violations; not just win rate |
+| Cash movements | Deposits, withdrawals, realized P&L and balance adjustments are distinct |
+| Attribution | Dataset/fill source, model/strategy version, timestamps, run mode and reconciliation evidence |
 
-## 3. Optional route: a research and analytics product
+For a reconciled account period, equity change less deposits plus withdrawals is the trading/account result only after separately accounting for external adjustments and the chosen fee/tax treatment. The ledger must document that treatment. Withdrawals are cash transfers, not new trading profit. The same equation must not mix currencies or realized balance with open-position equity.
 
-Candidate offer: an auditable strategy-comparison workspace with experiment history, data-quality checks and explanatory reports, not promises of profitable signals. Intended early users are an unvalidated hypothesis: independent quantitative researchers and small teams that need reproducible comparisons. Decide whether they actually need it before building billing or a separate product team.
+Every profit estimate must be derived from valid measured outcomes and stated assumptions. Do not manufacture a monthly return, prescribe leverage to meet an income target, or turn arbitrary sample capital into an owner commitment. Report losing periods and uncertainty alongside positive results.
 
-Illustrative pricing/customer combinations only; these are not sales projections or approved prices:
+## 4. Readiness for actual trading income
 
-| Hypothetical paid subscribers | Hypothetical monthly price | Gross monthly recurring revenue |
-| ---: | ---: | ---: |
-| 10 | USD 29 | USD 290 |
-| 30 | USD 49 | USD 1,470 |
-| 100 | USD 79 | USD 7,900 |
-
-MRR measures the monthly normalized recurring subscription component; one-off setup work is not recurring revenue. [2] Gross recurring revenue is not profit or collected cash: deduct refunds, collection/payment effects and the actual costs of delivery/support, and report taxes separately. Next-month revenue also changes with new, retained, downgraded and cancelled subscriptions.
-
-Validation sequence: draft one customer/problem hypothesis; define a demonstrable read-only use case; collect explicitly authorized user feedback; test willingness to pay; seek a small paid pilot only after rights, billing and support readiness. A suggested discovery target is five qualified conversations and three users independently identifying the same problem. Those are proposed validation thresholds, not completed interviews or proof of demand. External outreach and sales require their own authorization.
-
-Do not add hypothetical software revenue to hypothetical trading gains and present the sum as a company forecast. Each route needs separate evidence and accounting.
-
-## 4. Revenue gates and commercial horizons
-
-| Gate | Evidence needed | Income status |
+| Stage | Required evidence | What can be claimed |
 | --- | --- | --- |
-| Research alpha, first 30-day plan | Reliable data/replay, baseline comparisons and documented unknowns | Revenue hypothesis only; no promised payment date |
-| Validated specialist/Core selection | Untouched evaluation, cost stress, stable account/risk behavior | Evidence for a pilot decision, not realized earnings |
-| Shadow/paper validation | Observable execution, drawdown/recovery and failure/restart behavior | Simulation record, not revenue |
-| Separately approved limited live use | Named capital, broker, risk/withdrawal limits and actual account reconciliation | First realized gains OR losses become measurable |
-| Optional software pilot | Validated demand, data/IP rights, support and paid pilot approval | Only actual paid subscriptions count as sales |
-| Expansion | Repeatable evidence, capacity, legal jurisdiction and unit economics | Scale only the route with demonstrated value |
+| Correct replay and data | Causal features, correct long/short execution and account arithmetic, byte-linked provenance | The simulation behaves as specified |
+| Specialist/Core evaluation | Nested selection, untouched evaluation, matched costs and explicit risk | Limited out-of-sample evidence; not actual earnings |
+| Shadow/paper loop | Measured latency, rejects/partial fills, stop/restart behavior, position reconciliation and stale-data handling | Operational test evidence; paper P&L remains simulated |
+| Separately authorized live pilot | Named account, permissions, exposure/loss limits, monitoring and rollback | Actual fills and realized gains or losses can be measured |
+| Evidence-led expansion | Stable performance and operational evidence under new conditions | Expand instruments or capacity only after revalidation |
 
-The 3-6 and 6-12 month roadmap horizons are review windows, not promised dates for profit or product sales. Failure to establish an edge means revise or stop the trading-income route; a software product is not automatically a substitute unless separately validated.
+No date in the development calendar guarantees the first profitable month. Failure to find sufficient edge is a valid research outcome, not a reason to invent results or sell an unrelated product. Live activation is a later deployment decision; it is not forbidden as the final product goal, but it is not authorized in the current development step.
 
-## 5. Inputs and daily ownership
+## 5. Planned work and owner inputs
 
-Issue #45 tracks this revenue work. Record, rather than guess: investable capital and currency; desired monthly net income; maximum tolerable drawdown; withdrawal versus reinvestment; applicable jurisdiction; and whether the optional software route is wanted. These inputs remain UNSET until supplied. Their absence does not stop unrelated engineering.
+Issue #45 owns trading-profit/risk measurement. R03 records account-currency and income-goal assumptions; G23 reconciles long/short realized and unrealized results; R08 specifies automated position-management and risk acceptance. All sales/customer work is removed. The former R07 sales slot is reassigned to the course-evidence/Market Grammar research design under #38.
 
-During the first week, R03 produces the assumptions register. G23/R08 revisit it using actual research evidence later in the plan. The owner selects income goals and capital/risk; the delivery coordinator links each revenue gate to actual product tasks; Parsa validates return/risk measurement; Niloofar/Saman validate data assumptions. No new independent commercial agent is implied.
+Capital, account currency, acceptable loss/drawdown, per-trade risk, concurrency, leverage, income goal and withdrawal/reinvestment choices remain UNSET until deliberately established. A teacher's confidence or confluence count does not supply these controls. Keep financial account details private. Missing owner inputs do not prevent independent code/data research, but they do prevent unbounded live sizing.
 
-Separate four dashboard fields: owner income goal, hypothesis/sensitivity, measured research result, and actual receipts/withdrawals. Each number needs a period, currency, evidence level and source. Do not populate a missing actual with a hypothetical example.
-
-## References
-
-[1] CFTC, trading-system and hypothetical-performance advisory: https://www.cftc.gov/sites/default/files/opa/enf00/opa4397-00.htm . Used only for the limitation of hypothetical results, not a claim about this project's future returns or a jurisdiction-specific legal opinion.
-
-[2] Stripe, Monthly recurring revenue explained: https://stripe.com/resources/more/what-is-monthly-recurring-revenue . Used for the definition of MRR, not pricing or demand assumptions.
+This correction does not purchase services, open an account, use credentials or enable live orders. Existing tests, permissions and release gates remain in force.
