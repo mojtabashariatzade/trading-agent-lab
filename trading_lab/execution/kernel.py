@@ -235,8 +235,8 @@ class ExecutionKernel:
         risk_amount = request.stop_distance * request.quantity
 
         for bar in rows:
-            # If timeout is before this bar starts, the dataset does not contain
-            # an executable observation at the timeout instant.
+            # With minute-aligned timeouts, a timeout at the bar start exits at
+            # the executable opening quote before any intrabar TP/SL path.
             if request.timeout_at < bar.start:
                 return self._censored(
                     request=request,
@@ -247,17 +247,29 @@ class ExecutionKernel:
                     risk_amount=risk_amount,
                     entry_commission=entry_commission,
                 )
+            if request.timeout_at == bar.start:
+                raw_exit = bar.bid_open if request.side == "BUY" else bar.ask_open
+                return self._resolved(
+                    request=request,
+                    entry=entry,
+                    px_in=px_in,
+                    stop=stop,
+                    target=target,
+                    exit_at=request.timeout_at,
+                    raw_exit=raw_exit,
+                    reason=ExitReason.TIMEOUT,
+                    risk_amount=risk_amount,
+                    ambiguous=False,
+                )
 
             if request.side == "BUY":
                 stop_hit = bar.bid_low <= stop
                 target_hit = bar.bid_high >= target
                 stop_gap = bar.bid_open <= stop
-                target_gap = bar.bid_open >= target
             else:
                 stop_hit = bar.ask_high >= stop
                 target_hit = bar.ask_low <= target
                 stop_gap = bar.ask_open >= stop
-                target_gap = bar.ask_open <= target
 
             if stop_hit and target_hit:
                 # M1 path is unknowable. Choose the conservative loss outcome.
@@ -268,7 +280,7 @@ class ExecutionKernel:
                     px_in=px_in,
                     stop=stop,
                     target=target,
-                    exit_at=bar.start,
+                    exit_at=bar.start if stop_gap else bar.end,
                     raw_exit=raw_exit,
                     reason=ExitReason.SL,
                     risk_amount=risk_amount,
@@ -283,7 +295,7 @@ class ExecutionKernel:
                     px_in=px_in,
                     stop=stop,
                     target=target,
-                    exit_at=bar.start,
+                    exit_at=bar.start if stop_gap else bar.end,
                     raw_exit=raw_exit,
                     reason=ExitReason.SL,
                     risk_amount=risk_amount,
@@ -300,14 +312,14 @@ class ExecutionKernel:
                     px_in=px_in,
                     stop=stop,
                     target=target,
-                    exit_at=bar.start,
+                    exit_at=bar.end,
                     raw_exit=raw_exit,
                     reason=ExitReason.TP,
                     risk_amount=risk_amount,
                     ambiguous=False,
                 )
 
-            if request.timeout_at <= bar.end:
+            if request.timeout_at == bar.end:
                 raw_exit = bar.bid_close if request.side == "BUY" else bar.ask_close
                 return self._resolved(
                     request=request,
