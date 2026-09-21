@@ -1,10 +1,9 @@
 """Status honesty for maf_durable: no fake RUNNING without durable worker execution id."""
 import unittest
 
-from agentops.config import Settings
 from agentops.runtime_status import build_status
 from agentops.store import Store
-from tests.fakes import REPO, NOW
+from tests.fakes import NOW
 
 
 class MafDurableStatusTests(unittest.TestCase):
