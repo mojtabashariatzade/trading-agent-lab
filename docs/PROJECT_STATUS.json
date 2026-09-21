@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "handbook_version": "1.0",
+  "as_of_date": "2026-09-22",
+  "evidence_main_sha": "16bcf1f1fe39d76eca510734a20d267ad651871d",
+  "snapshot_kind": "NON_EXECUTABLE_MANAGEMENT_RECORD",
+  "custodian_function": "Arman / delivery coordinator",
+  "current_mode": "RESEARCH_DEVELOPMENT",
+  "kickoff_at_utc": null,
+  "calendar_forecast": "PLANNING_WINDOWS_NOT_COMMITMENTS",
+  "current_milestone": "Reproducible small real-data replay with three existing experts after relevant correctness and provenance fixes",
+  "full_product_goal": "15 strategy families: intra-family selection, inter-family evaluation and an eligible-specialist Trading Decision Core",
+  "independent_qa": "NOT_VERIFIED",
+  "scheduled_productive_delivery": "NOT_VERIFIED",
+  "local_deployed_sha": null,
+  "pc_independent_telegram": "NOT_VERIFIED",
+  "real_data_coverage": "UNVERIFIED",
+  "real_performance_claims": "NOT_ESTABLISHED",
+  "live_trading_authorized": false,
+  "broker_activation_authorized": false,
+  "financial_envelope": {
+    "reporting_currency": "USD",
+    "new_service_api_data_hardware_authorized_cap": 0,
+    "trading_capital_authorized_cap": 0,
+    "verified_actual_spend": null,
+    "existing_subscription_allocation": null,
+    "local_power_cost": null,
+    "quota_remaining": null,
+    "billing_controls_verified": false,
+    "note": "Zero is an authorization cap, not an assertion that total economic cost or actual spending is zero. Keep private billing evidence outside the public repo."
+  },
+  "work_in_progress_policy": {"product_items": 1, "bounded_research_questions": 1, "parallel_model_execution_claimed": false},
+  "next_delivery_items": [
+    {"reference": "PR #39", "priority": "P1", "state_at_baseline": "OPEN", "next_action": "Revalidate current head/base and integrate when authorized, otherwise name the exact release gate"},
+    {"reference": "Issue #43", "priority": "P1", "state_at_baseline": "READY", "next_action": "Reproduce and fix future-tail-dependent entry decisions"},
+    {"reference": "Issue #37", "priority": "P2", "state_at_baseline": "ACCESS_PERMISSION_UNRESOLVED", "next_action": "Resolve a concrete source-rights/access question before a bounded authorized sample"},
+    {"reference": "Issue #41", "priority": "P2", "state_at_baseline": "REPAIR_NOT_STARTED", "next_action": "Prevent research from dispatching to the disabled legacy coding worker"},
+    {"reference": "Issue #38", "priority": "P2", "state_at_baseline": "SPECIFICATION_REQUIRED", "next_action": "Reconcile canonical family identifiers and register bounded nested competition rules"},
+    {"reference": "Issue #42", "priority": "P2", "state_at_baseline": "DELIVERY_PROOF_REQUIRED", "next_action": "Record real scheduled research/code receipts and reconcile documented versus executable policy"}
+  ],
+  "overview_review_after_days": 7,
+  "update_policy": "Update affected fields after a verified material change; retain original evidence and deadlines. No receipt means UNKNOWN, not success. This file does not configure runtime, billing or permissions.",
+  "evidence": [
+    "https://github.com/mojtabashariatzade/trading-agent-lab/commit/16bcf1f1fe39d76eca510734a20d267ad651871d",
+    "https://github.com/mojtabashariatzade/trading-agent-lab/pull/39",
+    "https://github.com/mojtabashariatzade/trading-agent-lab/issues/37",
+    "https://github.com/mojtabashariatzade/trading-agent-lab/issues/38",
+    "https://github.com/mojtabashariatzade/trading-agent-lab/issues/40",
+    "https://github.com/mojtabashariatzade/trading-agent-lab/issues/41",
+    "https://github.com/mojtabashariatzade/trading-agent-lab/issues/42",
+    "https://github.com/mojtabashariatzade/trading-agent-lab/issues/43"
+  ]
+}
