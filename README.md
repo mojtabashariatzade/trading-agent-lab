@@ -1,5 +1,13 @@
 # Trading Agent Team -- supervised autonomous development starter
 
+## Project reading entry point
+
+Start with the [project handbook and delivery plan](docs/PROJECT_HANDBOOK.md), the [Persian owner guide](docs/PROJECT_HANDBOOK.fa.md), and the [dated evidence/status snapshot](docs/PROJECT_STATUS.json). The handbook covers short- and long-term milestones, finance, responsibilities, research, risk, acceptance and documentation upkeep. It is a management baseline, not a runtime or spending authorization.
+
+The original starter description below is retained as historical setup context. Read it together with the handbook's current evidence and open gaps; it does not prove that independent agents, deployment or real-data evaluation are active. Follow actual repository tests, permissions and deployment receipts rather than assuming that a documentation change activates them.
+
+## Original starter description
+
 **Built locally, not deployed. No remote agent is currently running. No live
 trading, trained model, fetched price history, real tournament or profit claim.**
 
