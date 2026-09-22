@@ -1,10 +1,16 @@
-# Trading Agent Team -- supervised autonomous development starter
+# Trading Agent Lab -- autonomous trading system in development
+
+## Product objective
+
+Build a system that observes markets, decides LONG or SHORT when justified, sizes and executes permitted positions, manages exits and reconciles net trading P&L for the owner's account. PASS, WAIT and DATA_INSUFFICIENT remain valid outcomes. Research, backtesting, unseen evaluation and paper operation are development stages toward that trader, not separate products to sell. Subscription sales, customer analytics and software licensing are outside this project's scope.
+
+The final objective includes automatic market execution after validation and separate live activation. The current repository does not establish a working live broker loop or profitable model. GBPJPY/M15 is the first benchmark, not a permanent product boundary. Keep the software-development coordinator separate from the Trading Decision Core.
 
 ## Project reading entry point
 
-Start with the [project handbook and delivery plan](docs/PROJECT_HANDBOOK.md), the [Persian owner guide](docs/PROJECT_HANDBOOK.fa.md), and the [dated evidence/status snapshot](docs/PROJECT_STATUS.json). The handbook covers short- and long-term milestones, finance, responsibilities, research, risk, acceptance and documentation upkeep. It is a management baseline, not a runtime or spending authorization.
+Start with the [project handbook](docs/PROJECT_HANDBOOK.md), [Persian owner guide](docs/PROJECT_HANDBOOK.fa.md), [trading-profit plan](docs/REVENUE_PLAN.md), [daily work plan](docs/DAILY_DELIVERY_PLAN.md) and [dated evidence/status snapshot](docs/PROJECT_STATUS.json). The [course and Market Grammar architecture](docs/architecture/MARKET_GRAMMAR_DESIGN.md) is a research design, not implemented behavior. It preserves the fifteen-family league and macro/news layer while separating course claims, teacher reconstruction and actual trading validity.
 
-The original starter description below is retained as historical setup context. Read it together with the handbook's current evidence and open gaps; it does not prove that independent agents, deployment or real-data evaluation are active. Follow actual repository tests, permissions and deployment receipts rather than assuming that a documentation change activates them.
+The original starter description below is retained as historical setup context. Read it together with the current handbook's evidence and gaps; it does not prove that independent agents, deployment or real-data evaluation are active. Follow actual repository tests, permissions and deployment receipts. A documentation change activates none of them.
 
 ## Original starter description
 
