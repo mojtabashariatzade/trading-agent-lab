@@ -33,6 +33,10 @@ from trading_lab.strategies.contracts import parse_closed_bar
 
 class DatasetClass(str, Enum):
     SYNTHETIC_TEST_ONLY = "SYNTHETIC_TEST_ONLY"
+    REAL_OBSERVATION = "REAL_OBSERVATION"
+
+
+REQUIRED_INTEGRITY_GATES: tuple[str, ...] = ("G06", "G07", "G08", "G16")
 
 
 def _aware_utc(value: datetime) -> datetime:
@@ -139,14 +143,50 @@ class TournamentRun:
     decisions: tuple[TournamentDecision, ...]
     trades: tuple[TradeRecord, ...]
     final_cash: float
+    integrity_gates_completed: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        normalized = tuple(sorted({str(gate).strip().upper() for gate in self.integrity_gates_completed if str(gate).strip()}))
+        object.__setattr__(self, "integrity_gates_completed", normalized)
+
+    @property
+    def integrity_missing_gates(self) -> tuple[str, ...]:
+        return tuple(gate for gate in REQUIRED_INTEGRITY_GATES if gate not in self.integrity_gates_completed)
+
+    def ranking_blockers(self) -> tuple[str, ...]:
+        blockers: list[str] = []
+        if self.dataset_class == DatasetClass.SYNTHETIC_TEST_ONLY:
+            blockers.append("DATASET_SYNTHETIC_TEST_ONLY")
+        if self.integrity_missing_gates:
+            blockers.append("INTEGRITY_GATES_INCOMPLETE")
+        return tuple(blockers)
+
+    def _blocked_message(self, *, path_name: str) -> str:
+        blockers = self.ranking_blockers()
+        parts: list[str] = [f"{path_name} blocked"]
+        if "INTEGRITY_GATES_INCOMPLETE" in blockers:
+            missing = ", ".join(self.integrity_missing_gates)
+            parts.append(f"missing_integrity_gates=[{missing}]")
+        if "DATASET_SYNTHETIC_TEST_ONLY" in blockers:
+            parts.append("dataset_class=SYNTHETIC_TEST_ONLY")
+        if not blockers:
+            parts.append("no blockers")
+        return "; ".join(parts)
+
+    def require_integrity_before_ranking(self) -> None:
+        if self.integrity_missing_gates:
+            raise RuntimeError(self._blocked_message(path_name="RANKING_PATH"))
 
     @property
     def leaderboard_eligible(self) -> bool:
-        return False
+        return not self.ranking_blockers()
 
     def real_performance_rows(self):
+        blockers = self.ranking_blockers()
+        if blockers:
+            raise RuntimeError(self._blocked_message(path_name="REAL_PERFORMANCE_ROWS"))
         raise RuntimeError(
-            "SYNTHETIC_TEST_ONLY runs cannot populate a real-performance leaderboard"
+            "REAL_PERFORMANCE_ROWS_NOT_IMPLEMENTED: run is integrity-eligible, but row materialization is not implemented yet"
         )
 
 
@@ -277,9 +317,31 @@ class TournamentRunner:
         opportunities: Sequence[Opportunity],
         created_at: datetime,
         initial_cash: float = 0.0,
+        dataset_class: DatasetClass = DatasetClass.SYNTHETIC_TEST_ONLY,
+        integrity_gates_completed: Sequence[str] = (),
     ) -> TournamentRun:
         if not run_id.strip() or not dataset_id.strip():
             raise ValueError("run_id and dataset_id are required")
+        if not isinstance(dataset_class, DatasetClass):
+            raise ValueError("Typed DatasetClass required")
+        normalized_gates = tuple(
+            sorted(
+                {
+                    str(gate).strip().upper()
+                    for gate in integrity_gates_completed
+                    if str(gate).strip()
+                }
+            )
+        )
+        missing_required = tuple(
+            gate for gate in REQUIRED_INTEGRITY_GATES if gate not in normalized_gates
+        )
+        if dataset_class == DatasetClass.REAL_OBSERVATION and missing_required:
+            missing = ", ".join(missing_required)
+            raise RuntimeError(
+                "EXECUTION_PATH blocked; missing_integrity_gates="
+                f"[{missing}]"
+            )
         created_at = _aware_utc(created_at)
         cash = float(initial_cash)
         if not isfinite(cash):
@@ -370,7 +432,7 @@ class TournamentRunner:
         return TournamentRun(
             run_id=run_id,
             dataset_id=dataset_id,
-            dataset_class=DatasetClass.SYNTHETIC_TEST_ONLY,
+            dataset_class=dataset_class,
             created_at=created_at,
             strategy_versions=versions,
             config=self.config,
@@ -378,14 +440,17 @@ class TournamentRunner:
             decisions=tuple(decisions),
             trades=tuple(trades),
             final_cash=account.cash,
+            integrity_gates_completed=normalized_gates,
         )
 
     @staticmethod
     def _data_ready(opportunity: Opportunity) -> bool:
+        # Entry eligibility must depend only on data available at decision time.
+        # M1 bars are post-entry evolution; missing future tail can censor an
+        # already-open trade but must not veto opening the trade itself.
         return bool(
             opportunity.m15_rows
             and opportunity.entry_quote is not None
-            and opportunity.m1_bars
         )
 
     @staticmethod
