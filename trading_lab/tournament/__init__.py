@@ -2,6 +2,7 @@
 from .core import (
     DatasetClass,
     Opportunity,
+    REQUIRED_INTEGRITY_GATES,
     RuleBasedDecisionCore,
     TournamentConfig,
     TournamentDecision,
@@ -13,6 +14,7 @@ from .core import (
 __all__ = [
     "DatasetClass",
     "Opportunity",
+    "REQUIRED_INTEGRITY_GATES",
     "RuleBasedDecisionCore",
     "TournamentConfig",
     "TournamentDecision",

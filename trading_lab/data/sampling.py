@@ -5,9 +5,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 
-from trading_lab.fundamentals import EconomicRelease
+from trading_lab.fundamentals import EconomicRelease, validate_release_pit_constraints
 
-from .imports import AcquisitionStatus, DataClass, DataManifest
+from .imports import (
+    AcquisitionStatus,
+    DataClass,
+    DataManifest,
+    verify_manifest_bindings,
+)
 
 
 class TermsStatus(str, Enum):
@@ -135,6 +140,14 @@ class DukascopySamplingAdapter:
             raise PermissionError("Cannot mark sample downloaded before terms are verified allowed")
         if manifest.data_class != DataClass.REAL_OBSERVATION:
             raise ValueError("Provider samples must be stored as REAL_OBSERVATION, not fixtures")
+        if not manifest.source_provenance or not manifest.legal_source:
+            raise ValueError("Downloaded provider samples require source_provenance and legal_source")
+        if (
+            not manifest.payload_snapshot_sha256
+            or manifest.payload_snapshot_sha256 != manifest.checksum_sha256
+        ):
+            raise ValueError("Downloaded provider samples require immutable payload snapshot binding")
+        verify_manifest_bindings(manifest)
         return SamplingReport(
             provider_id=self.provider_id,
             adapter_version=self.adapter_version,
@@ -148,4 +161,5 @@ class DukascopySamplingAdapter:
 
 def original_macro_value(release: EconomicRelease) -> float | None:
     """Use the immutable first release; never substitute a later revision."""
+    validate_release_pit_constraints(release)
     return release.first_actual
