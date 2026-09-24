@@ -43,6 +43,12 @@ from .selector_input import (
     SelectorInputContract,
     SelectorInputContractHarness,
 )
+from .selector_calibration import (
+    SelectorCalibrationArtifact,
+    SelectorCalibrationError,
+    SelectorCalibrationHarness,
+    SelectorCalibrationRow,
+)
 
 __all__ = [
     "CandidateFeedValidationError",
@@ -68,6 +74,10 @@ __all__ = [
     "RankedVariant",
     "RejectedFamilyReason",
     "RuleBasedDecisionCore",
+    "SelectorCalibrationArtifact",
+    "SelectorCalibrationError",
+    "SelectorCalibrationHarness",
+    "SelectorCalibrationRow",
     "SelectorCandidate",
     "SelectorInputContract",
     "SelectorInputContractHarness",
