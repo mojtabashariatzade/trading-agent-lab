@@ -10,6 +10,12 @@ from .core import (
     TournamentRunner,
     default_experts,
 )
+from .candidate_feed import (
+    CandidateFeedValidationError,
+    CoreLeagueCandidate,
+    CoreLeagueCandidateFeed,
+    CoreLeagueCandidateFeedAdapter,
+)
 from .family_league import (
     FamilyEligibilityMatrixRow,
     IntraFamilyLeagueHarness,
@@ -33,6 +39,10 @@ from .selector_input import (
 )
 
 __all__ = [
+    "CandidateFeedValidationError",
+    "CoreLeagueCandidate",
+    "CoreLeagueCandidateFeed",
+    "CoreLeagueCandidateFeedAdapter",
     "DatasetClass",
     "FamilyEligibilityMatrixRow",
     "FamilyChampion",
