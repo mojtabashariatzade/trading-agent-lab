@@ -257,10 +257,20 @@ class T004TournamentTests(unittest.TestCase):
             created_at=at,
         )
 
+        self.assertEqual(run_full.decisions[0].side, Side.BUY)
+        self.assertEqual(run_missing_tail.decisions[0].side, Side.BUY)
         self.assertEqual(run_full.decisions[0].reason, "SINGLE_EXPERT")
         self.assertEqual(run_missing_tail.decisions[0].reason, "SINGLE_EXPERT")
-        self.assertEqual(run_missing_tail.trades[0].result.reason.value, "CENSORED")
-        self.assertEqual(run_missing_tail.trades[0].result.commission_paid, 0.25)
+        self.assertEqual(run_full.decisions[0].strategy_ids, ("A",))
+        self.assertEqual(run_missing_tail.decisions[0].strategy_ids, ("A",))
+
+        censored = run_missing_tail.trades[0].result
+        self.assertEqual(censored.reason.value, "CENSORED")
+        self.assertIsNone(censored.exit_at)
+        self.assertIsNone(censored.exit_price)
+        self.assertIsNone(censored.gross_pnl)
+        self.assertIsNone(censored.net_pnl)
+        self.assertEqual(censored.commission_paid, 0.25)
 
     def test_censored_position_from_missing_tail_blocks_later_entries(self):
         t0 = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
