@@ -43,16 +43,25 @@ class Quote:
     at: datetime
     bid: float
     ask: float
+    available_at: datetime | None = None
 
     def __post_init__(self) -> None:
         at = _aware_utc(self.at)
+        if at.second or at.microsecond:
+            raise ValueError("Quote time must be minute-aligned for M1 execution")
         bid = _positive(self.bid, "bid")
         ask = _positive(self.ask, "ask")
         if bid > ask:
             raise ValueError("Crossed bid/ask")
+        available_at = at if self.available_at is None else _aware_utc(self.available_at)
+        if available_at.second or available_at.microsecond:
+            raise ValueError("available_at must be minute-aligned for M1 execution")
+        if available_at < at:
+            raise ValueError("Quote availability cannot precede event time")
         object.__setattr__(self, "at", at)
         object.__setattr__(self, "bid", bid)
         object.__setattr__(self, "ask", ask)
+        object.__setattr__(self, "available_at", available_at)
 
 
 @dataclass(frozen=True)
@@ -121,6 +130,7 @@ class TradeRequest:
     quantity: float = 1.0
     slippage: float = 0.0
     commission_per_side: float = 0.0
+    entry_latency_minutes: int = 0
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "side", _side(self.side))
@@ -137,6 +147,15 @@ class TradeRequest:
             "commission_per_side",
             _non_negative(self.commission_per_side, "commission_per_side"),
         )
+        latency = self.entry_latency_minutes
+        if isinstance(latency, bool) or not isinstance(latency, int) or latency < 0:
+            raise ValueError("entry_latency_minutes must be a non-negative integer")
+        object.__setattr__(self, "entry_latency_minutes", latency)
+
+    def fill_ready_at_utc(self, entry: Quote) -> datetime:
+        """Canonical fill-readiness timestamp for this request and entry quote."""
+        baseline = max(entry.at, entry.available_at)
+        return baseline + timedelta(minutes=self.entry_latency_minutes)
 
 
 @dataclass(frozen=True)
@@ -202,8 +221,9 @@ class ExecutionKernel:
         entry: Quote,
         bars: Sequence[M1Bar] | Iterable[M1Bar],
     ) -> TradeResult:
-        if request.timeout_at <= entry.at:
-            raise ValueError("timeout_at must be after entry")
+        fill_ready_at = request.fill_ready_at_utc(entry)
+        if request.timeout_at <= fill_ready_at:
+            raise ValueError("timeout_at must be after fill_ready_at")
         rows = list(bars)
         for i, bar in enumerate(rows):
             if not isinstance(bar, M1Bar):
@@ -235,12 +255,14 @@ class ExecutionKernel:
         risk_amount = request.stop_distance * request.quantity
 
         for bar in rows:
+            if bar.start < fill_ready_at:
+                continue
             # With minute-aligned timeouts, a timeout at the bar start exits at
             # the executable opening quote before any intrabar TP/SL path.
             if request.timeout_at < bar.start:
                 return self._censored(
                     request=request,
-                    entry=entry,
+                    entry_at=fill_ready_at,
                     px_in=px_in,
                     stop=stop,
                     target=target,
@@ -251,7 +273,7 @@ class ExecutionKernel:
                 raw_exit = bar.bid_open if request.side == "BUY" else bar.ask_open
                 return self._resolved(
                     request=request,
-                    entry=entry,
+                    entry_at=fill_ready_at,
                     px_in=px_in,
                     stop=stop,
                     target=target,
@@ -276,7 +298,7 @@ class ExecutionKernel:
                 raw_exit = self._stop_exit_raw(request.side, bar, stop, stop_gap)
                 return self._resolved(
                     request=request,
-                    entry=entry,
+                    entry_at=fill_ready_at,
                     px_in=px_in,
                     stop=stop,
                     target=target,
@@ -291,7 +313,7 @@ class ExecutionKernel:
                 raw_exit = self._stop_exit_raw(request.side, bar, stop, stop_gap)
                 return self._resolved(
                     request=request,
-                    entry=entry,
+                    entry_at=fill_ready_at,
                     px_in=px_in,
                     stop=stop,
                     target=target,
@@ -308,7 +330,7 @@ class ExecutionKernel:
                 raw_exit = target
                 return self._resolved(
                     request=request,
-                    entry=entry,
+                    entry_at=fill_ready_at,
                     px_in=px_in,
                     stop=stop,
                     target=target,
@@ -323,7 +345,7 @@ class ExecutionKernel:
                 raw_exit = bar.bid_close if request.side == "BUY" else bar.ask_close
                 return self._resolved(
                     request=request,
-                    entry=entry,
+                    entry_at=fill_ready_at,
                     px_in=px_in,
                     stop=stop,
                     target=target,
@@ -336,7 +358,7 @@ class ExecutionKernel:
 
         return self._censored(
             request=request,
-            entry=entry,
+            entry_at=fill_ready_at,
             px_in=px_in,
             stop=stop,
             target=target,
@@ -356,7 +378,7 @@ class ExecutionKernel:
     def _resolved(
         *,
         request: TradeRequest,
-        entry: Quote,
+        entry_at: datetime,
         px_in: float,
         stop: float,
         target: float,
@@ -378,7 +400,7 @@ class ExecutionKernel:
         net = gross - commission
         return TradeResult(
             side=request.side,
-            entry_at=entry.at,
+            entry_at=_aware_utc(entry_at),
             entry_price=px_in,
             stop_price=stop,
             target_price=target,
@@ -398,7 +420,7 @@ class ExecutionKernel:
     def _censored(
         *,
         request: TradeRequest,
-        entry: Quote,
+        entry_at: datetime,
         px_in: float,
         stop: float,
         target: float,
@@ -407,7 +429,7 @@ class ExecutionKernel:
     ) -> TradeResult:
         return TradeResult(
             side=request.side,
-            entry_at=entry.at,
+            entry_at=_aware_utc(entry_at),
             entry_price=px_in,
             stop_price=stop,
             target_price=target,

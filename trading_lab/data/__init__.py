@@ -4,10 +4,14 @@ from .imports import (
     DataClass,
     DataManifest,
     Gap,
+    IntegrityCheckError,
+    MetadataBinding,
+    RecordBinding,
     StorageLayout,
     build_manifest,
     sha256_file,
     verify_manifest,
+    verify_manifest_bindings,
 )
 from .sampling import (
     DukascopySamplingAdapter,
@@ -23,6 +27,9 @@ __all__ = [
     "DataManifest",
     "DukascopySamplingAdapter",
     "Gap",
+    "IntegrityCheckError",
+    "MetadataBinding",
+    "RecordBinding",
     "SamplePlan",
     "SamplingReport",
     "StorageLayout",
@@ -31,4 +38,5 @@ __all__ = [
     "original_macro_value",
     "sha256_file",
     "verify_manifest",
+    "verify_manifest_bindings",
 ]

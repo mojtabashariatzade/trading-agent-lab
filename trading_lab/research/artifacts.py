@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from trading_lab.tournament.core import TournamentRun
+from trading_lab.tournament.core import REQUIRED_INTEGRITY_GATES, TournamentRun
 
 
 def _encode(value: Any):
@@ -32,6 +32,10 @@ def run_artifact(run: TournamentRun) -> dict:
     payload = _encode(run)
     payload["schema"] = "trading-agent-lab.tournament-run.v1"
     payload["leaderboard_eligible"] = run.leaderboard_eligible
+    payload["integrity_required_gates"] = list(REQUIRED_INTEGRITY_GATES)
+    payload["integrity_completed_gates"] = list(run.integrity_gates_completed)
+    payload["integrity_missing_gates"] = list(run.integrity_missing_gates)
+    payload["ranking_blockers"] = list(run.ranking_blockers())
     payload["synthetic_warning"] = (
         "SYNTHETIC_TEST_ONLY: fixture results are not real historical performance "
         "and cannot populate a real-performance leaderboard."
