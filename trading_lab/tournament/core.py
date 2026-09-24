@@ -11,6 +11,8 @@ from enum import Enum
 from math import isfinite
 from typing import Mapping, Sequence
 
+from trading_lab.contracts import AccountingState
+
 from trading_lab.execution.kernel import (
     ExecutionKernel,
     M1Bar,
@@ -97,6 +99,7 @@ class Opportunity:
     entry_quote: Quote | None
     m1_bars: Sequence[M1Bar]
     risk_allowed: bool = True
+    accounting_state: AccountingState | None = None
 
     def __post_init__(self) -> None:
         if not self.opportunity_id.strip():
@@ -108,6 +111,8 @@ class Opportunity:
         object.__setattr__(self, "m15_rows", tuple(self.m15_rows))
         object.__setattr__(self, "m1_bars", tuple(self.m1_bars))
         object.__setattr__(self, "risk_allowed", bool(self.risk_allowed))
+        if self.accounting_state is not None and not isinstance(self.accounting_state, AccountingState):
+            raise ValueError("accounting_state must be an AccountingState or None")
 
 
 @dataclass(frozen=True)
@@ -364,6 +369,23 @@ class TournamentRunner:
         permanently_open = False
 
         for opportunity in opportunities:
+            if dataset_class == DatasetClass.REAL_OBSERVATION and opportunity.accounting_state is None:
+                raise RuntimeError("EXECUTION_PATH blocked; missing_accounting_state_snapshot")
+
+            if opportunity.accounting_state is not None:
+                accounting_eval = opportunity.accounting_state.evaluate_gates()
+                if accounting_eval.blocked:
+                    decisions.append(
+                        TournamentDecision(
+                            opportunity.opportunity_id,
+                            Side.PASS,
+                            accounting_eval.block_error_code or "ACCOUNTING_BLOCK",
+                            (),
+                            None,
+                        )
+                    )
+                    continue
+
             data_ready = self._data_ready(opportunity)
             proposals: list[StrategyProposal] = []
             if opportunity.m15_rows:

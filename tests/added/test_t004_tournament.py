@@ -2,9 +2,10 @@
 import json
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+from trading_lab.contracts import AccountingState
 from trading_lab.execution.kernel import M1Bar, Quote
 from trading_lab.research import run_artifact, write_run_artifact
 from trading_lab.strategies import ExitConfig, ExitLeague, Side, StrategyProposal
@@ -370,6 +371,30 @@ class T004TournamentTests(unittest.TestCase):
                     m15_rows=m15_rows(at),
                     entry_quote=Quote(at, 100.0, 100.2),
                     m1_bars=[m1(at)],
+                    accounting_state=AccountingState(
+                        decision_time_utc=at,
+                        account_snapshot_time_utc=at,
+                        max_snapshot_age_seconds=60,
+                        instrument="GBPJPY",
+                        account_currency="JPY",
+                        equity=100.0,
+                        cash_available=90.0,
+                        unrealized_pnl=10.0,
+                        min_cash_required=20.0,
+                        free_margin=50.0,
+                        required_margin=30.0,
+                        overlap_detected=False,
+                        net_exposure_after_candidate=0.2,
+                        max_abs_exposure_limit=1.0,
+                        open_positions_same_instrument=0,
+                        max_positions_same_instrument=1,
+                        rollover_due=1.5,
+                        rollover_charged=1.5,
+                        mtm_tolerance_abs=1e-9,
+                        rollover_tolerance_abs=1e-9,
+                        rollover_due_date_utc=date(2026, 1, 5),
+                        rollover_charge_date_utc=date(2026, 1, 5),
+                    ),
                 )
             ],
             created_at=at,
