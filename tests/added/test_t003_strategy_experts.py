@@ -202,6 +202,31 @@ class T003StrategyExpertTests(unittest.TestCase):
         self.assertEqual(result.side, Side.PASS)
         self.assertEqual(result.reason, "RANGE_INCOMPLETE")
 
+    def test_session_breakout_overlapping_opening_intervals_are_incomplete(self):
+        expert = SessionRangeBreakoutExpert(
+            SessionBreakoutConfig(timezone_name="Europe/London")
+        )
+        base = datetime(2026, 1, 5, 8, 0, tzinfo=UTC)
+        rows = [
+            session_row(base + timedelta(minutes=0), close=100.0, high=100.4, low=99.8),
+            {
+                "start": (base + timedelta(minutes=15)).isoformat(),
+                "end": (base + timedelta(minutes=45)).isoformat(),
+                "open": 100.1,
+                "high": 100.6,
+                "low": 99.9,
+                "close": 100.2,
+                "ticks": 10,
+                "gap_before": False,
+                "closed": True,
+            },
+            session_row(base + timedelta(minutes=45), close=100.3, high=100.7, low=100.1),
+            session_row(base + timedelta(minutes=60), close=100.9, high=101.0, low=100.6),
+        ]
+        result = expert.propose(rows)
+        self.assertEqual(result.side, Side.PASS)
+        self.assertEqual(result.reason, "RANGE_INCOMPLETE")
+
     def test_session_breakout_complete_range_without_breakout_is_no_breakout(self):
         expert = SessionRangeBreakoutExpert(
             SessionBreakoutConfig(timezone_name="Europe/London")
