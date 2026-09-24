@@ -4,9 +4,11 @@ import unittest
 
 from trading_lab.strategies import (
     FamilyEligibility,
+    FamilyRedundancyGroup,
     default_strategy_family_registry,
     family_definition_by_contract_id,
     family_eligibility_matrix,
+    family_redundancy_groups,
     validated_strategy_family_registry,
 )
 
@@ -74,6 +76,34 @@ class T007FamilyRegistryTests(unittest.TestCase):
 
     def test_default_registry_remains_compatible_with_validated_guard(self):
         self.assertEqual(default_strategy_family_registry(), validated_strategy_family_registry())
+
+    def test_redundancy_groups_return_only_overlaps_by_default(self):
+        groups = family_redundancy_groups()
+        self.assertEqual(
+            groups,
+            (
+                FamilyRedundancyGroup(
+                    epic_family_id=1,
+                    epic_family_name="EMA / trend-following",
+                    contract_ids=("S01", "S05"),
+                ),
+                FamilyRedundancyGroup(
+                    epic_family_id=13,
+                    epic_family_name="Macro-surprise",
+                    contract_ids=("S12", "S13"),
+                ),
+            ),
+        )
+
+    def test_redundancy_groups_can_include_singletons_for_full_epic_coverage(self):
+        groups = family_redundancy_groups(include_singletons=True)
+        self.assertEqual(len(groups), 13)
+        by_epic = {item.epic_family_id: item for item in groups}
+
+        self.assertEqual(by_epic[2].contract_ids, ("S02",))
+        self.assertEqual(by_epic[3].contract_ids, ("S04",))
+        self.assertEqual(by_epic[11].contract_ids, ("S10",))
+        self.assertEqual(by_epic[13].contract_ids, ("S12", "S13"))
 
 
 if __name__ == "__main__":

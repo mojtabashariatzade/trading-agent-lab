@@ -10,10 +10,12 @@ from .experts import (
 )
 from .family_registry import (
     FamilyEligibility,
+    FamilyRedundancyGroup,
     StrategyFamilyDefinition,
     default_strategy_family_registry,
     family_definition_by_contract_id,
     family_eligibility_matrix,
+    family_redundancy_groups,
     validated_strategy_family_registry,
 )
 
@@ -25,6 +27,7 @@ __all__ = [
     "ExitConfig",
     "ExitLeague",
     "FamilyEligibility",
+    "FamilyRedundancyGroup",
     "SessionBreakoutConfig",
     "SessionRangeBreakoutExpert",
     "Side",
@@ -33,5 +36,6 @@ __all__ = [
     "default_strategy_family_registry",
     "family_definition_by_contract_id",
     "family_eligibility_matrix",
+    "family_redundancy_groups",
     "validated_strategy_family_registry",
 ]
