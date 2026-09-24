@@ -30,6 +30,7 @@ from trading_lab.strategies import (
     SessionRangeBreakoutExpert,
     Side,
     StrategyProposal,
+    VolatilityCompressionBreakoutExpert,
 )
 from trading_lab.strategies.contracts import parse_closed_bar
 
@@ -321,6 +322,7 @@ def default_experts():
     return (
         EmaTrendExpert(),
         DonchianBreakoutExpert(),
+        VolatilityCompressionBreakoutExpert(),
         BollingerReentryExpert(),
         SessionRangeBreakoutExpert(),
     )

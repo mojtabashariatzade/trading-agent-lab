@@ -404,11 +404,12 @@ class T004TournamentTests(unittest.TestCase):
                 "DONCHIAN_BREAKOUT",
                 "EMA_TREND",
                 "SESSION_RANGE_BREAKOUT",
+                "VOLATILITY_COMPRESSION_BREAKOUT",
             ),
         )
         self.assertEqual(run.decisions[0].side, Side.PASS)
         self.assertEqual(run.decisions[0].reason, "ALL_PASS")
-        self.assertEqual(len(run.proposals), 4)
+        self.assertEqual(len(run.proposals), 5)
 
     def test_synthetic_run_cannot_be_real_performance(self):
         at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)

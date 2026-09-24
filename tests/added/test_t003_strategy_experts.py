@@ -12,6 +12,8 @@ from trading_lab.strategies import (
     SessionBreakoutConfig,
     SessionRangeBreakoutExpert,
     Side,
+    VolatilityCompressionBreakoutExpert,
+    VolatilityCompressionConfig,
 )
 
 
@@ -40,6 +42,20 @@ def make_rows(closes, *, start=None, gap_index=None):
 
 
 def session_row(start, *, close, high, low):
+    return {
+        "start": start.isoformat(),
+        "end": (start + timedelta(minutes=15)).isoformat(),
+        "open": close,
+        "high": high,
+        "low": low,
+        "close": close,
+        "ticks": 10,
+        "gap_before": False,
+        "closed": True,
+    }
+
+
+def compression_row(start, *, high, low, close):
     return {
         "start": start.isoformat(),
         "end": (start + timedelta(minutes=15)).isoformat(),
@@ -90,6 +106,66 @@ class T003StrategyExpertTests(unittest.TestCase):
         self.assertEqual(sell.side, Side.SELL)
         self.assertEqual(sell.reason, "REENTERED_FROM_ABOVE")
         self.assertEqual(flat.side, Side.PASS)
+
+    def test_volatility_compression_breakout_buy_and_sell(self):
+        expert = VolatilityCompressionBreakoutExpert(
+            VolatilityCompressionConfig(
+                lookback=3,
+                compression_threshold=0.7,
+                expansion_multiplier=2.0,
+            )
+        )
+        start = datetime(2026, 1, 5, 0, 0, tzinfo=UTC)
+
+        buy_rows = [
+            compression_row(start + timedelta(minutes=15 * 0), high=100.8, low=100.0, close=100.4),
+            compression_row(start + timedelta(minutes=15 * 1), high=100.9, low=100.1, close=100.5),
+            compression_row(start + timedelta(minutes=15 * 2), high=101.0, low=100.2, close=100.6),
+            compression_row(start + timedelta(minutes=15 * 3), high=100.62, low=100.38, close=100.50),
+            compression_row(start + timedelta(minutes=15 * 4), high=101.2, low=100.4, close=101.05),
+        ]
+        sell_rows = [
+            compression_row(start + timedelta(minutes=15 * 0), high=100.8, low=100.0, close=100.4),
+            compression_row(start + timedelta(minutes=15 * 1), high=100.9, low=100.1, close=100.5),
+            compression_row(start + timedelta(minutes=15 * 2), high=101.0, low=100.2, close=100.6),
+            compression_row(start + timedelta(minutes=15 * 3), high=100.62, low=100.38, close=100.50),
+            compression_row(start + timedelta(minutes=15 * 4), high=100.55, low=99.70, close=100.10),
+        ]
+
+        buy = expert.propose(buy_rows)
+        sell = expert.propose(sell_rows)
+        self.assertEqual(buy.side, Side.BUY)
+        self.assertEqual(buy.reason, "UPSIDE_COMPRESSION_BREAKOUT")
+        self.assertEqual(sell.side, Side.SELL)
+        self.assertEqual(sell.reason, "DOWNSIDE_COMPRESSION_BREAKOUT")
+
+    def test_volatility_compression_no_compression_and_no_expansion(self):
+        expert = VolatilityCompressionBreakoutExpert(
+            VolatilityCompressionConfig(
+                lookback=3,
+                compression_threshold=0.7,
+                expansion_multiplier=2.0,
+            )
+        )
+        start = datetime(2026, 1, 5, 0, 0, tzinfo=UTC)
+
+        no_compression = [
+            compression_row(start + timedelta(minutes=15 * 0), high=100.8, low=100.0, close=100.4),
+            compression_row(start + timedelta(minutes=15 * 1), high=100.9, low=100.1, close=100.5),
+            compression_row(start + timedelta(minutes=15 * 2), high=101.0, low=100.2, close=100.6),
+            compression_row(start + timedelta(minutes=15 * 3), high=100.95, low=100.25, close=100.60),
+            compression_row(start + timedelta(minutes=15 * 4), high=101.3, low=100.4, close=101.10),
+        ]
+        no_expansion = [
+            compression_row(start + timedelta(minutes=15 * 0), high=100.8, low=100.0, close=100.4),
+            compression_row(start + timedelta(minutes=15 * 1), high=100.9, low=100.1, close=100.5),
+            compression_row(start + timedelta(minutes=15 * 2), high=101.0, low=100.2, close=100.6),
+            compression_row(start + timedelta(minutes=15 * 3), high=100.62, low=100.38, close=100.50),
+            compression_row(start + timedelta(minutes=15 * 4), high=100.66, low=100.34, close=100.63),
+        ]
+
+        self.assertEqual(expert.propose(no_compression).reason, "NO_COMPRESSION")
+        self.assertEqual(expert.propose(no_expansion).reason, "NO_EXPANSION")
 
     def test_shared_and_native_exit_leagues_are_distinct(self):
         expert = EmaTrendExpert(

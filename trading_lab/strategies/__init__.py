@@ -9,6 +9,8 @@ from .experts import (
     EmaTrendExpert,
     SessionBreakoutConfig,
     SessionRangeBreakoutExpert,
+    VolatilityCompressionBreakoutExpert,
+    VolatilityCompressionConfig,
 )
 from .family_registry import (
     FamilyEligibility,
@@ -37,6 +39,8 @@ __all__ = [
     "Side",
     "StrategyFamilyDefinition",
     "StrategyProposal",
+    "VolatilityCompressionBreakoutExpert",
+    "VolatilityCompressionConfig",
     "default_strategy_family_registry",
     "family_definition_by_contract_id",
     "family_eligibility_matrix",
