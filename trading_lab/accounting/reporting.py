@@ -12,9 +12,55 @@ from trading_lab.accounting.ledger import LedgerSnapshot
 
 SCHEMA_VERSION = "ledger-evaluation.v1"
 EPSILON = 1e-9
+UNSET = "UNSET"
+
+RISK_CONTROL_KEYS = (
+    "position_sizing",
+    "daily_loss_limit",
+    "account_loss_limit",
+    "max_concurrent_positions",
+    "emergency_stop",
+)
+
+RESULT_CHANNEL_KEYS = (
+    "hypothetical",
+    "out_of_sample",
+    "paper",
+    "live",
+)
+
+CHANNEL_FIELD_KEYS = (
+    "status",
+    "period",
+    "source",
+    "revision",
+)
 
 
-def build_ledger_evaluation_artifact(*, snapshots: Sequence[LedgerSnapshot]) -> dict[str, object]:
+def _normalized_risk_controls(risk_controls: dict[str, object] | None) -> dict[str, object]:
+    controls = risk_controls or {}
+    return {key: controls.get(key, UNSET) for key in RISK_CONTROL_KEYS}
+
+
+def _normalized_result_channels(
+    result_channels: dict[str, dict[str, object]] | None,
+) -> dict[str, dict[str, object]]:
+    channels = result_channels or {}
+    normalized: dict[str, dict[str, object]] = {}
+    for channel in RESULT_CHANNEL_KEYS:
+        channel_values = channels.get(channel) or {}
+        normalized[channel] = {
+            field: channel_values.get(field, UNSET) for field in CHANNEL_FIELD_KEYS
+        }
+    return normalized
+
+
+def build_ledger_evaluation_artifact(
+    *,
+    snapshots: Sequence[LedgerSnapshot],
+    risk_controls: dict[str, object] | None = None,
+    result_channels: dict[str, dict[str, object]] | None = None,
+) -> dict[str, object]:
     """Build deterministic machine-readable reporting output from ledger snapshots."""
     if not snapshots:
         raise ValueError("snapshots must not be empty")
@@ -23,6 +69,8 @@ def build_ledger_evaluation_artifact(*, snapshots: Sequence[LedgerSnapshot]) -> 
     max_exposure = max(snapshot.exposure_abs for snapshot in snapshots)
     worst_drawdown = max(snapshot.drawdown for snapshot in snapshots)
     max_drawdown = max(snapshot.max_drawdown for snapshot in snapshots)
+    normalized_risk_controls = _normalized_risk_controls(risk_controls)
+    normalized_result_channels = _normalized_result_channels(result_channels)
 
     equity_reconciliation_ok = (
         abs(
@@ -72,5 +120,7 @@ def build_ledger_evaluation_artifact(*, snapshots: Sequence[LedgerSnapshot]) -> 
             "invariants": {
                 "equity_reconciliation_ok": equity_reconciliation_ok,
             },
+            "risk_controls": normalized_risk_controls,
+            "result_channels": normalized_result_channels,
         },
     }
