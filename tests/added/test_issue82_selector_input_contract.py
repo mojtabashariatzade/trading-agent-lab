@@ -69,6 +69,31 @@ class Issue82SelectorInputContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "requires explicit reasons"):
             SelectorInputContractHarness().build(championship_result=malformed_reasonless)
 
+        malformed_overlap = InterFamilyChampionshipResult(
+            championship_ranking=(FamilyChampion("S01", 1, "S01-V01", 9.0),),
+            promotion=PromotionContract(
+                selected_champions=(FamilyChampion("S01", 1, "S01-V01", 9.0),),
+                runner_ups=(),
+                ineligible_families=(IneligibleFamily("S01", ("PREREQUISITE_UNAVAILABLE:ohlcv_h1",)),),
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "overlaps promoted candidate"):
+            SelectorInputContractHarness().build(championship_result=malformed_overlap)
+
+        malformed_duplicate_rejected = InterFamilyChampionshipResult(
+            championship_ranking=(FamilyChampion("S01", 1, "S01-V01", 9.0),),
+            promotion=PromotionContract(
+                selected_champions=(FamilyChampion("S01", 1, "S01-V01", 9.0),),
+                runner_ups=(),
+                ineligible_families=(
+                    IneligibleFamily("S09", ("PREREQUISITE_UNAVAILABLE:ohlcv_h1",)),
+                    IneligibleFamily("S09", ("PREREQUISITE_UNAVAILABLE:ohlcv_h4",)),
+                ),
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "duplicate rejected family contract_id"):
+            SelectorInputContractHarness().build(championship_result=malformed_duplicate_rejected)
+
     def test_to_dict_schema_contains_required_fields_and_invariants(self):
         available_prerequisites = {
             prerequisite: True

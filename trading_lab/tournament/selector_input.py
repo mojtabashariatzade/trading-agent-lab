@@ -11,6 +11,7 @@ Required candidate fields for downstream Core-league consumers:
 Contract invariants:
 - candidate ordering is deterministic and stable
 - candidate contract_ids are unique
+- rejected family contract_ids are unique and never overlap promoted candidates
 - rejected families provide explicit non-empty machine-readable reasons
 """
 
@@ -112,10 +113,19 @@ class SelectorInputContractHarness:
                 )
 
         rejected_families: list[RejectedFamilyReason] = []
+        seen_rejected_contracts: set[str] = set()
         for ineligible in sorted(
             promotion.ineligible_families,
             key=lambda item: item.contract_id,
         ):
+            if ineligible.contract_id in seen_rejected_contracts:
+                raise ValueError(
+                    f"duplicate rejected family contract_id in selector input: {ineligible.contract_id}"
+                )
+            if ineligible.contract_id in seen_contracts:
+                raise ValueError(
+                    f"rejected family overlaps promoted candidate: {ineligible.contract_id}"
+                )
             cleaned_reasons = tuple(
                 sorted(
                     {
@@ -129,6 +139,7 @@ class SelectorInputContractHarness:
                 raise ValueError(
                     f"ineligible family requires explicit reasons: {ineligible.contract_id}"
                 )
+            seen_rejected_contracts.add(ineligible.contract_id)
             rejected_families.append(
                 RejectedFamilyReason(
                     contract_id=ineligible.contract_id,
