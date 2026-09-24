@@ -18,14 +18,26 @@ from .family_league import (
     RankedVariant,
     VariantEligibility,
 )
+from .inter_family import (
+    FamilyChampion,
+    IneligibleFamily,
+    InterFamilyChampionshipHarness,
+    InterFamilyChampionshipResult,
+    PromotionContract,
+)
 
 __all__ = [
     "DatasetClass",
     "FamilyEligibilityMatrixRow",
+    "FamilyChampion",
+    "IneligibleFamily",
     "IntraFamilyLeagueHarness",
     "IntraFamilyLeagueResult",
+    "InterFamilyChampionshipHarness",
+    "InterFamilyChampionshipResult",
     "Opportunity",
     "PrerequisiteGateResult",
+    "PromotionContract",
     "REQUIRED_INTEGRITY_GATES",
     "RankedVariant",
     "RuleBasedDecisionCore",
