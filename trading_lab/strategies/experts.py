@@ -287,7 +287,21 @@ class SessionRangeBreakoutExpert:
             return self._pass(bars, league, shared_exit, "SESSION_RANGE_NOT_CLOSED")
 
         session_date = latest_local.date()
+        session_start = latest_local.replace(
+            hour=self.config.range_start.hour,
+            minute=self.config.range_start.minute,
+            second=self.config.range_start.second,
+            microsecond=0,
+        )
+        session_end = latest_local.replace(
+            hour=self.config.range_end.hour,
+            minute=self.config.range_end.minute,
+            second=self.config.range_end.second,
+            microsecond=0,
+        )
+
         range_bars = []
+        range_starts_local = []
         for candidate in bars[:-1]:
             local = candidate.start.astimezone(self._tz)
             local_time = local.timetz().replace(tzinfo=None)
@@ -296,11 +310,29 @@ class SessionRangeBreakoutExpert:
                 and self.config.range_start <= local_time < self.config.range_end
             ):
                 range_bars.append(candidate)
+                range_starts_local.append(local)
 
         if not range_bars:
             return self._pass(bars, league, shared_exit, "SESSION_RANGE_MISSING")
         if any(bar.gap_before for bar in range_bars[1:]) or latest.gap_before:
             return self._pass(bars, league, shared_exit, "DATA_GAP")
+
+        bar_width = latest.end - latest.start
+        expected_starts_local = []
+        cursor = session_start
+        while cursor < session_end:
+            if cursor + bar_width > session_end:
+                return self._pass(bars, league, shared_exit, "RANGE_INCOMPLETE")
+            expected_starts_local.append(cursor)
+            cursor += bar_width
+
+        if any((bar.end - bar.start) != bar_width for bar in range_bars):
+            return self._pass(bars, league, shared_exit, "RANGE_INCOMPLETE")
+        if (
+            len(range_starts_local) != len(expected_starts_local)
+            or set(range_starts_local) != set(expected_starts_local)
+        ):
+            return self._pass(bars, league, shared_exit, "RANGE_INCOMPLETE")
 
         range_high = max(bar.high for bar in range_bars)
         range_low = min(bar.low for bar in range_bars)
