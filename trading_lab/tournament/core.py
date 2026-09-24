@@ -61,6 +61,7 @@ def _non_negative(value: float, name: str) -> float:
 @dataclass(frozen=True)
 class TournamentConfig:
     max_holding_minutes: int = 60
+    entry_latency_minutes: int = 0
     slippage: float = 0.0
     commission_per_side: float = 0.0
     league: ExitLeague = ExitLeague.SHARED
@@ -72,6 +73,12 @@ class TournamentConfig:
             "max_holding_minutes",
             _positive_int(self.max_holding_minutes, "max_holding_minutes"),
         )
+        if (
+            isinstance(self.entry_latency_minutes, bool)
+            or not isinstance(self.entry_latency_minutes, int)
+            or self.entry_latency_minutes < 0
+        ):
+            raise ValueError("entry_latency_minutes must be a non-negative integer")
         object.__setattr__(self, "slippage", _non_negative(self.slippage, "slippage"))
         object.__setattr__(
             self,
@@ -97,8 +104,6 @@ class Opportunity:
         decision_at = _aware_utc(self.decision_at)
         if decision_at.second or decision_at.microsecond:
             raise ValueError("decision_at must be minute-aligned")
-        if self.entry_quote is not None and self.entry_quote.at != decision_at:
-            raise ValueError("entry_quote.at must equal decision_at")
         object.__setattr__(self, "decision_at", decision_at)
         object.__setattr__(self, "m15_rows", tuple(self.m15_rows))
         object.__setattr__(self, "m1_bars", tuple(self.m1_bars))
@@ -402,10 +407,19 @@ class TournamentRunner:
                 side=decision.side.value,
                 stop_distance=decision.exit_config.stop_distance,
                 target_distance=decision.exit_config.target_distance,
-                timeout_at=opportunity.entry_quote.at
-                + timedelta(minutes=self.config.max_holding_minutes),
+                timeout_at=max(
+                    opportunity.entry_quote.at,
+                    opportunity.entry_quote.available_at,
+                )
+                + timedelta(
+                    minutes=(
+                        self.config.entry_latency_minutes
+                        + self.config.max_holding_minutes
+                    )
+                ),
                 slippage=self.config.slippage,
                 commission_per_side=self.config.commission_per_side,
+                entry_latency_minutes=self.config.entry_latency_minutes,
             )
             result = account.execute(
                 request,
@@ -451,6 +465,8 @@ class TournamentRunner:
         return bool(
             opportunity.m15_rows
             and opportunity.entry_quote is not None
+            and opportunity.entry_quote.at <= opportunity.decision_at
+            and opportunity.entry_quote.available_at <= opportunity.decision_at
         )
 
     @staticmethod
