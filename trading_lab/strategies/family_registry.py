@@ -99,7 +99,15 @@ class FamilyEligibility:
 
 
 def _normalized_capabilities(available_prerequisites: Iterable[str]) -> set[str]:
-    return {str(item).strip() for item in available_prerequisites if str(item).strip()}
+    if isinstance(available_prerequisites, (str, bytes)):
+        raise TypeError("available_prerequisites must be an iterable of prerequisite tokens, not a string")
+
+    try:
+        iterator = iter(available_prerequisites)
+    except TypeError as exc:
+        raise TypeError("available_prerequisites must be iterable") from exc
+
+    return {str(item).strip() for item in iterator if str(item).strip()}
 
 
 def validated_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]:

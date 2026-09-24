@@ -65,6 +65,13 @@ class T007FamilyRegistryTests(unittest.TestCase):
                 missing_prerequisites=("ohlcv_m15",),
             )
 
+    def test_eligibility_matrix_requires_iterable_tokens_not_raw_string(self):
+        with self.assertRaises(TypeError):
+            family_eligibility_matrix(available_prerequisites="ohlcv_m15")
+
+        with self.assertRaises(TypeError):
+            family_eligibility_matrix(available_prerequisites=None)  # type: ignore[arg-type]
+
     def test_default_registry_remains_compatible_with_validated_guard(self):
         self.assertEqual(default_strategy_family_registry(), validated_strategy_family_registry())
 
