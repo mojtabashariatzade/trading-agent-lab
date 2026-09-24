@@ -294,6 +294,64 @@ class T004TournamentTests(unittest.TestCase):
         self.assertEqual(run.decisions[1].reason, "POSITION_OPEN")
         self.assertEqual(len(run.trades), 1)
 
+    def test_missing_entry_quote_remains_data_required_even_with_future_tail(self):
+        at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
+        runner = TournamentRunner(experts=[FixedExpert("A", Side.BUY)])
+        run = runner.run(
+            run_id="missing-entry-quote",
+            dataset_id="fixture-missing-entry-quote",
+            opportunities=[
+                Opportunity(
+                    "O1",
+                    at,
+                    m15_rows=m15_rows(at),
+                    entry_quote=None,
+                    m1_bars=[m1(at + timedelta(minutes=i)) for i in range(3)],
+                )
+            ],
+            created_at=at,
+        )
+        self.assertEqual(run.decisions[0].reason, "DATA_REQUIRED")
+        self.assertEqual(run.trades, ())
+
+    def test_direction_conflict_is_unchanged_when_future_tail_is_missing(self):
+        at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
+        runner = TournamentRunner(
+            experts=[FixedExpert("A", Side.BUY), FixedExpert("B", Side.SELL)]
+        )
+        full_tail = runner.run(
+            run_id="conflict-full-tail",
+            dataset_id="fixture-conflict-tail",
+            opportunities=[
+                Opportunity(
+                    "O1",
+                    at,
+                    m15_rows=m15_rows(at),
+                    entry_quote=Quote(at, 100.0, 100.2),
+                    m1_bars=[m1(at + timedelta(minutes=i)) for i in range(2)],
+                )
+            ],
+            created_at=at,
+        )
+        missing_tail = runner.run(
+            run_id="conflict-missing-tail",
+            dataset_id="fixture-conflict-tail",
+            opportunities=[
+                Opportunity(
+                    "O1",
+                    at,
+                    m15_rows=m15_rows(at),
+                    entry_quote=Quote(at, 100.0, 100.2),
+                    m1_bars=[],
+                )
+            ],
+            created_at=at,
+        )
+        self.assertEqual(full_tail.decisions[0].reason, "DIRECTION_CONFLICT")
+        self.assertEqual(missing_tail.decisions[0].reason, "DIRECTION_CONFLICT")
+        self.assertEqual(full_tail.trades, ())
+        self.assertEqual(missing_tail.trades, ())
+
     def test_default_three_experts_connect_end_to_end_and_can_all_pass(self):
         at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
         runner = TournamentRunner()
