@@ -9,8 +9,13 @@ from .experts import (
     SessionRangeBreakoutExpert,
 )
 from .family_registry import (
+    FamilyEligibility,
+    FamilyRedundancyGroup,
     StrategyFamilyDefinition,
     default_strategy_family_registry,
+    family_definition_by_contract_id,
+    family_eligibility_matrix,
+    family_redundancy_groups,
     validated_strategy_family_registry,
 )
 
@@ -21,11 +26,16 @@ __all__ = [
     "EmaTrendExpert",
     "ExitConfig",
     "ExitLeague",
+    "FamilyEligibility",
+    "FamilyRedundancyGroup",
     "SessionBreakoutConfig",
     "SessionRangeBreakoutExpert",
     "Side",
     "StrategyFamilyDefinition",
     "StrategyProposal",
     "default_strategy_family_registry",
+    "family_definition_by_contract_id",
+    "family_eligibility_matrix",
+    "family_redundancy_groups",
     "validated_strategy_family_registry",
 ]

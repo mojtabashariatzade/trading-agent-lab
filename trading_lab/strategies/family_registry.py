@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-from typing import Literal
+from typing import Iterable, Literal
 
 
 _CONTRACT_ID_PATTERN = re.compile(r"^S(0[1-9]|1[0-5])$")
@@ -81,6 +81,75 @@ class StrategyFamilyDefinition:
             raise ValueError("at least one eligibility filter is required")
         if not self.data_prerequisites:
             raise ValueError("data_prerequisites are required")
+
+
+@dataclass(frozen=True)
+class FamilyEligibility:
+    contract_id: str
+    eligible: bool
+    missing_prerequisites: tuple[str, ...]
+    horizon_eligible: bool = True
+    missing_regime_filters: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not _CONTRACT_ID_PATTERN.fullmatch(self.contract_id):
+            raise ValueError("contract_id must be one of S01..S15")
+        normalized_prereqs = tuple(sorted({str(item).strip() for item in self.missing_prerequisites if str(item).strip()}))
+        object.__setattr__(self, "missing_prerequisites", normalized_prereqs)
+
+        normalized_filters = tuple(sorted({str(item).strip() for item in self.missing_regime_filters if str(item).strip()}))
+        object.__setattr__(self, "missing_regime_filters", normalized_filters)
+
+        if self.eligible and (normalized_prereqs or normalized_filters or not self.horizon_eligible):
+            raise ValueError("eligible entries may not include missing prerequisites, missing filters, or horizon mismatches")
+
+
+@dataclass(frozen=True)
+class FamilyRedundancyGroup:
+    epic_family_id: int
+    epic_family_name: str
+    contract_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not (1 <= self.epic_family_id <= 15):
+            raise ValueError("epic_family_id must be in [1, 15]")
+        if not self.epic_family_name.strip():
+            raise ValueError("epic_family_name is required")
+        normalized_ids = tuple(str(item).strip().upper() for item in self.contract_ids if str(item).strip())
+        if not normalized_ids:
+            raise ValueError("contract_ids must contain at least one contract id")
+        for contract_id in normalized_ids:
+            if not _CONTRACT_ID_PATTERN.fullmatch(contract_id):
+                raise ValueError("contract_ids must contain only S01..S15 values")
+        if len(set(normalized_ids)) != len(normalized_ids):
+            raise ValueError("contract_ids must not contain duplicates")
+        object.__setattr__(self, "contract_ids", normalized_ids)
+
+
+def _normalized_capabilities(available_prerequisites: Iterable[str]) -> set[str]:
+    if isinstance(available_prerequisites, (str, bytes)):
+        raise TypeError("available_prerequisites must be an iterable of prerequisite tokens, not a string")
+
+    try:
+        iterator = iter(available_prerequisites)
+    except TypeError as exc:
+        raise TypeError("available_prerequisites must be iterable") from exc
+
+    return {str(item).strip() for item in iterator if str(item).strip()}
+
+
+def _normalized_filter_tokens(filter_tokens: Iterable[str] | None) -> set[str]:
+    if filter_tokens is None:
+        return set()
+    if isinstance(filter_tokens, (str, bytes)):
+        raise TypeError("required_regime_filters must be an iterable of filter tokens, not a string")
+
+    try:
+        iterator = iter(filter_tokens)
+    except TypeError as exc:
+        raise TypeError("required_regime_filters must be iterable") from exc
+
+    return {str(item).strip() for item in iterator if str(item).strip()}
 
 
 def validated_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]:
@@ -316,7 +385,95 @@ def default_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]:
     )
 
 
+def family_definition_by_contract_id(contract_id: str) -> StrategyFamilyDefinition:
+    """Return one canonical family definition for a contract ID (S01..S15)."""
+
+    contract_id = str(contract_id).strip().upper()
+    for entry in validated_strategy_family_registry():
+        if entry.contract_id == contract_id:
+            return entry
+    raise KeyError(f"Unknown contract_id: {contract_id}")
+
+
+def family_eligibility_matrix(
+    *,
+    available_prerequisites: Iterable[str],
+    target_horizon_bars: int | None = None,
+    required_regime_filters: Iterable[str] | None = None,
+) -> tuple[FamilyEligibility, ...]:
+    """Compute eligibility per contract family from available point-in-time prerequisites.
+
+    Families are eligible only when:
+    - all declared data_prerequisites are available,
+    - target_horizon_bars falls inside each family's horizon bounds (if provided),
+    - all required_regime_filters are supported by the family definition.
+    """
+
+    available = _normalized_capabilities(available_prerequisites)
+    required_filters = _normalized_filter_tokens(required_regime_filters)
+    if target_horizon_bars is not None and target_horizon_bars < 1:
+        raise ValueError("target_horizon_bars must be positive when provided")
+
+    matrix: list[FamilyEligibility] = []
+    for entry in validated_strategy_family_registry():
+        missing = tuple(sorted(prereq for prereq in entry.data_prerequisites if prereq not in available))
+        horizon_eligible = (
+            True
+            if target_horizon_bars is None
+            else entry.horizon_bars[0] <= target_horizon_bars <= entry.horizon_bars[1]
+        )
+        missing_filters = tuple(sorted(filter_name for filter_name in required_filters if filter_name not in entry.filters))
+        is_eligible = not missing and horizon_eligible and not missing_filters
+        matrix.append(
+            FamilyEligibility(
+                contract_id=entry.contract_id,
+                eligible=is_eligible,
+                missing_prerequisites=missing,
+                horizon_eligible=horizon_eligible,
+                missing_regime_filters=missing_filters,
+            )
+        )
+    return tuple(matrix)
+
+
+def family_redundancy_groups(*, include_singletons: bool = False) -> tuple[FamilyRedundancyGroup, ...]:
+    """Return deterministic epic-family groups for overlap/redundancy tracking.
+
+    By default only groups with two or more contract IDs are returned, because
+    those groups represent explicit within-epic overlap that should not be
+    treated as fully independent evidence sources.
+    """
+
+    groups_by_epic: dict[int, tuple[str, list[str]]] = {}
+    for entry in validated_strategy_family_registry():
+        epic_name, contract_ids = groups_by_epic.setdefault(entry.epic_family_id, (entry.epic_family_name, []))
+        if epic_name != entry.epic_family_name:
+            raise ValueError(
+                f"Inconsistent epic_family_name for epic_family_id={entry.epic_family_id}: "
+                f"'{epic_name}' != '{entry.epic_family_name}'"
+            )
+        contract_ids.append(entry.contract_id)
+
+    groups: list[FamilyRedundancyGroup] = []
+    for epic_family_id in sorted(groups_by_epic):
+        epic_family_name, contract_ids = groups_by_epic[epic_family_id]
+        if include_singletons or len(contract_ids) > 1:
+            groups.append(
+                FamilyRedundancyGroup(
+                    epic_family_id=epic_family_id,
+                    epic_family_name=epic_family_name,
+                    contract_ids=tuple(contract_ids),
+                )
+            )
+    return tuple(groups)
+
+
 __all__ = [
+    "FamilyEligibility",
+    "FamilyRedundancyGroup",
+    "family_definition_by_contract_id",
+    "family_eligibility_matrix",
+    "family_redundancy_groups",
     "StrategyFamilyDefinition",
     "default_strategy_family_registry",
     "validated_strategy_family_registry",
