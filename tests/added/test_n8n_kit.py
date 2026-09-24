@@ -3,6 +3,7 @@ import base64
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -142,6 +143,14 @@ class BridgeTests(unittest.TestCase):
 
 
 class PackageTests(unittest.TestCase):
+    def _enforces_posix_mode_bits(self, path: Path) -> bool:
+        """Return True when chmod mode bits are enforced on this filesystem."""
+        probe = path / '.mode_probe'
+        probe.mkdir(mode=0o700)
+        os.chmod(probe, 0o700)
+        observed = probe.stat().st_mode & 0o777
+        return observed == 0o700
+
     def test_workflows_inactive_and_fixed_urls(self):
         flows=json.loads((ROOT/'workflows.json').read_text())
         self.assertEqual({f['id'] for f in flows},set(installer.IDS))
@@ -165,7 +174,13 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(before,(root/'.private/encryption').read_text())
             cfg=json.loads((root/'.private/connections').read_text())
             self.assertFalse(cfg['telegram_polling_enabled']);self.assertFalse(cfg['worker_handoff_enabled'])
-            self.assertEqual((root/'.private').stat().st_mode & 0o777,0o700)
+            private_mode = (root/'.private').stat().st_mode & 0o777
+            if self._enforces_posix_mode_bits(root):
+                self.assertEqual(private_mode,0o700)
+            else:
+                # Windows/MSYS can report permissive synthetic mode bits (e.g., 0o777)
+                # even when installer requests restrictive permissions.
+                self.assertEqual(private_mode & 0o700,0o700)
     def test_prepare_will_not_overwrite_unmarked_state(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);(root/'.private').mkdir()
