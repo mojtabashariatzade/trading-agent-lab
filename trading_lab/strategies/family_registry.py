@@ -102,8 +102,17 @@ class FamilyEligibility:
 
         if self.eligible and (normalized_prereqs or normalized_filters or not self.horizon_eligible):
             raise ValueError("eligible entries may not include missing prerequisites, missing filters, or horizon mismatches")
-        if (not self.eligible) and (not normalized_prereqs) and self.horizon_eligible and (not normalized_filters):
-            raise ValueError("ineligible entries must include at least one explicit reason")
+        if not self.eligible and not self.blocking_reasons:
+            raise ValueError("ineligible entries must include at least one explicit blocking reason")
+
+    @property
+    def blocking_reasons(self) -> tuple[str, ...]:
+        reasons: list[str] = []
+        reasons.extend(f"missing_prerequisite:{token}" for token in self.missing_prerequisites)
+        reasons.extend(f"missing_regime_filter:{token}" for token in self.missing_regime_filters)
+        if not self.horizon_eligible:
+            reasons.append("horizon_out_of_range")
+        return tuple(reasons)
 
 
 @dataclass(frozen=True)
