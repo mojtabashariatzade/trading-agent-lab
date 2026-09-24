@@ -7,7 +7,11 @@ entry to the Epic #38 taxonomy labels.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Literal
+
+
+_CONTRACT_ID_PATTERN = re.compile(r"^S(0[1-9]|1[0-5])$")
 
 
 @dataclass(frozen=True)
@@ -25,8 +29,8 @@ class StrategyFamilyDefinition:
     data_prerequisites: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not self.contract_id.startswith("S"):
-            raise ValueError("contract_id must keep S01-S15 naming")
+        if not _CONTRACT_ID_PATTERN.fullmatch(self.contract_id):
+            raise ValueError("contract_id must be one of S01..S15")
         if not self.contract_name.strip() or not self.epic_family_name.strip():
             raise ValueError("family names are required")
         if not (1 <= self.epic_family_id <= 15):
@@ -57,6 +61,22 @@ class StrategyFamilyDefinition:
             raise ValueError("at least one eligibility filter is required")
         if not self.data_prerequisites:
             raise ValueError("data_prerequisites are required")
+
+
+def validated_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]:
+    """Return the default registry after strict identity/coverage checks.
+
+    This helper gives callers one canonical checked source so downstream code can
+    fail fast if accidental edits remove an expected contract family.
+    """
+
+    registry = default_strategy_family_registry()
+    ids = [entry.contract_id for entry in registry]
+    unique_ids = set(ids)
+    expected_ids = {f"S{i:02d}" for i in range(1, 16)}
+    if unique_ids != expected_ids or len(ids) != len(unique_ids):
+        raise ValueError("registry must contain each of S01..S15 exactly once")
+    return registry
 
 
 def default_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]:
@@ -261,4 +281,8 @@ def default_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]:
     )
 
 
-__all__ = ["StrategyFamilyDefinition", "default_strategy_family_registry"]
+__all__ = [
+    "StrategyFamilyDefinition",
+    "default_strategy_family_registry",
+    "validated_strategy_family_registry",
+]

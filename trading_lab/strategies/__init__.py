@@ -8,7 +8,11 @@ from .experts import (
     SessionBreakoutConfig,
     SessionRangeBreakoutExpert,
 )
-from .family_registry import StrategyFamilyDefinition, default_strategy_family_registry
+from .family_registry import (
+    StrategyFamilyDefinition,
+    default_strategy_family_registry,
+    validated_strategy_family_registry,
+)
 
 __all__ = [
     "BollingerReentryConfig",
@@ -23,4 +27,5 @@ __all__ = [
     "StrategyFamilyDefinition",
     "StrategyProposal",
     "default_strategy_family_registry",
+    "validated_strategy_family_registry",
 ]
