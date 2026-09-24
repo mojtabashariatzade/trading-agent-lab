@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import time, timedelta
+from datetime import datetime, time, timedelta
 from math import isfinite
 from statistics import fmean, pstdev
 from typing import Mapping, Sequence
@@ -282,57 +282,37 @@ class SessionRangeBreakoutExpert:
         if not bars:
             raise ValueError("At least one closed bar is required")
         latest = bars[-1]
+        bar_width = latest.end - latest.start
         latest_local = latest.start.astimezone(self._tz)
         if latest_local.timetz().replace(tzinfo=None) < self.config.range_end:
             return self._pass(bars, league, shared_exit, "SESSION_RANGE_NOT_CLOSED")
 
         session_date = latest_local.date()
-        session_start = latest_local.replace(
-            hour=self.config.range_start.hour,
-            minute=self.config.range_start.minute,
-            second=self.config.range_start.second,
-            microsecond=0,
-        )
-        session_end = latest_local.replace(
-            hour=self.config.range_end.hour,
-            minute=self.config.range_end.minute,
-            second=self.config.range_end.second,
-            microsecond=0,
-        )
-
+        range_start_local = datetime.combine(session_date, self.config.range_start, tzinfo=self._tz)
+        range_end_local = datetime.combine(session_date, self.config.range_end, tzinfo=self._tz)
         range_bars = []
-        range_starts_local = []
         for candidate in bars[:-1]:
-            local = candidate.start.astimezone(self._tz)
-            local_time = local.timetz().replace(tzinfo=None)
-            if (
-                local.date() == session_date
-                and self.config.range_start <= local_time < self.config.range_end
-            ):
+            local_start = candidate.start.astimezone(self._tz)
+            local_end = candidate.end.astimezone(self._tz)
+            if local_start < range_end_local and local_end > range_start_local:
                 range_bars.append(candidate)
-                range_starts_local.append(local)
 
         if not range_bars:
             return self._pass(bars, league, shared_exit, "SESSION_RANGE_MISSING")
-        if any(bar.gap_before for bar in range_bars[1:]) or latest.gap_before:
-            return self._pass(bars, league, shared_exit, "DATA_GAP")
 
-        bar_width = latest.end - latest.start
-        expected_starts_local = []
-        cursor = session_start
-        while cursor < session_end:
-            if cursor + bar_width > session_end:
-                return self._pass(bars, league, shared_exit, "RANGE_INCOMPLETE")
-            expected_starts_local.append(cursor)
-            cursor += bar_width
-
+        range_bars = sorted(range_bars, key=lambda bar: bar.start)
+        first_local_start = range_bars[0].start.astimezone(self._tz)
+        last_local_end = range_bars[-1].end.astimezone(self._tz)
+        if first_local_start != range_start_local or last_local_end != range_end_local:
+            return self._pass(bars, league, shared_exit, "RANGE_INCOMPLETE")
         if any((bar.end - bar.start) != bar_width for bar in range_bars):
             return self._pass(bars, league, shared_exit, "RANGE_INCOMPLETE")
-        if (
-            len(range_starts_local) != len(expected_starts_local)
-            or set(range_starts_local) != set(expected_starts_local)
-        ):
-            return self._pass(bars, league, shared_exit, "RANGE_INCOMPLETE")
+        for previous, current in zip(range_bars, range_bars[1:]):
+            if current.start != previous.end:
+                return self._pass(bars, league, shared_exit, "RANGE_INCOMPLETE")
+
+        if any(bar.gap_before for bar in range_bars[1:]) or latest.gap_before:
+            return self._pass(bars, league, shared_exit, "DATA_GAP")
 
         range_high = max(bar.high for bar in range_bars)
         range_low = min(bar.low for bar in range_bars)

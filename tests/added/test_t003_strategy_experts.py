@@ -157,27 +157,52 @@ class T003StrategyExpertTests(unittest.TestCase):
         self.assertEqual(result.side, Side.PASS)
         self.assertEqual(result.reason, "SESSION_RANGE_NOT_CLOSED")
 
-    def test_session_breakout_rejects_incomplete_opening_range(self):
+    def test_session_breakout_missing_first_opening_interval_is_incomplete(self):
         expert = SessionRangeBreakoutExpert(
             SessionBreakoutConfig(timezone_name="Europe/London")
         )
         base = datetime(2026, 1, 5, 8, 0, tzinfo=UTC)
-        full_rows = [
-            session_row(base + timedelta(minutes=0), close=100.0, high=100.4, low=99.8),
+        rows = [
             session_row(base + timedelta(minutes=15), close=100.1, high=100.5, low=99.9),
             session_row(base + timedelta(minutes=30), close=100.2, high=100.6, low=100.0),
             session_row(base + timedelta(minutes=45), close=100.3, high=100.7, low=100.1),
             session_row(base + timedelta(minutes=60), close=100.9, high=101.0, low=100.6),
         ]
+        result = expert.propose(rows)
+        self.assertEqual(result.side, Side.PASS)
+        self.assertEqual(result.reason, "RANGE_INCOMPLETE")
 
-        for missing_idx, case_name in ((0, "missing-first"), (1, "missing-middle"), (3, "missing-last")):
-            with self.subTest(case=case_name):
-                rows = [row for i, row in enumerate(full_rows) if i != missing_idx]
-                result = expert.propose(rows)
-                self.assertEqual(result.side, Side.PASS)
-                self.assertEqual(result.reason, "RANGE_INCOMPLETE")
+    def test_session_breakout_missing_middle_opening_interval_is_incomplete(self):
+        expert = SessionRangeBreakoutExpert(
+            SessionBreakoutConfig(timezone_name="Europe/London")
+        )
+        base = datetime(2026, 1, 5, 8, 0, tzinfo=UTC)
+        rows = [
+            session_row(base + timedelta(minutes=0), close=100.0, high=100.4, low=99.8),
+            session_row(base + timedelta(minutes=30), close=100.2, high=100.6, low=100.0),
+            session_row(base + timedelta(minutes=45), close=100.3, high=100.7, low=100.1),
+            session_row(base + timedelta(minutes=60), close=100.9, high=101.0, low=100.6),
+        ]
+        result = expert.propose(rows)
+        self.assertEqual(result.side, Side.PASS)
+        self.assertEqual(result.reason, "RANGE_INCOMPLETE")
 
-    def test_session_breakout_rejects_overlapping_range_intervals(self):
+    def test_session_breakout_missing_last_opening_interval_is_incomplete(self):
+        expert = SessionRangeBreakoutExpert(
+            SessionBreakoutConfig(timezone_name="Europe/London")
+        )
+        base = datetime(2026, 1, 5, 8, 0, tzinfo=UTC)
+        rows = [
+            session_row(base + timedelta(minutes=0), close=100.0, high=100.4, low=99.8),
+            session_row(base + timedelta(minutes=15), close=100.1, high=100.5, low=99.9),
+            session_row(base + timedelta(minutes=30), close=100.2, high=100.6, low=100.0),
+            session_row(base + timedelta(minutes=60), close=100.9, high=101.0, low=100.6),
+        ]
+        result = expert.propose(rows)
+        self.assertEqual(result.side, Side.PASS)
+        self.assertEqual(result.reason, "RANGE_INCOMPLETE")
+
+    def test_session_breakout_overlapping_opening_intervals_are_incomplete(self):
         expert = SessionRangeBreakoutExpert(
             SessionBreakoutConfig(timezone_name="Europe/London")
         )
@@ -186,21 +211,123 @@ class T003StrategyExpertTests(unittest.TestCase):
             session_row(base + timedelta(minutes=0), close=100.0, high=100.4, low=99.8),
             {
                 "start": (base + timedelta(minutes=15)).isoformat(),
-                "end": (base + timedelta(minutes=35)).isoformat(),
+                "end": (base + timedelta(minutes=45)).isoformat(),
                 "open": 100.1,
-                "high": 100.5,
+                "high": 100.6,
                 "low": 99.9,
+                "close": 100.2,
+                "ticks": 10,
+                "gap_before": False,
+                "closed": True,
+            },
+            session_row(base + timedelta(minutes=45), close=100.3, high=100.7, low=100.1),
+            session_row(base + timedelta(minutes=60), close=100.9, high=101.0, low=100.6),
+        ]
+        result = expert.propose(rows)
+        self.assertEqual(result.side, Side.PASS)
+        self.assertEqual(result.reason, "RANGE_INCOMPLETE")
+
+    def test_session_breakout_partial_bar_crossing_range_start_is_incomplete(self):
+        expert = SessionRangeBreakoutExpert(
+            SessionBreakoutConfig(timezone_name="Europe/London")
+        )
+        base = datetime(2026, 1, 5, 8, 0, tzinfo=UTC)
+        rows = [
+            {
+                "start": (base - timedelta(minutes=15)).isoformat(),
+                "end": (base + timedelta(minutes=15)).isoformat(),
+                "open": 100.0,
+                "high": 100.5,
+                "low": 99.7,
                 "close": 100.1,
                 "ticks": 10,
                 "gap_before": False,
                 "closed": True,
             },
+            session_row(base + timedelta(minutes=15), close=100.1, high=100.5, low=99.9),
             session_row(base + timedelta(minutes=30), close=100.2, high=100.6, low=100.0),
             session_row(base + timedelta(minutes=45), close=100.3, high=100.7, low=100.1),
             session_row(base + timedelta(minutes=60), close=100.9, high=101.0, low=100.6),
         ]
-        with self.assertRaises(ValueError):
-            expert.propose(rows)
+        result = expert.propose(rows)
+        self.assertEqual(result.side, Side.PASS)
+        self.assertEqual(result.reason, "RANGE_INCOMPLETE")
+
+    def test_session_breakout_partial_bar_crossing_range_end_is_incomplete(self):
+        expert = SessionRangeBreakoutExpert(
+            SessionBreakoutConfig(timezone_name="Europe/London")
+        )
+        base = datetime(2026, 1, 5, 8, 0, tzinfo=UTC)
+        rows = [
+            session_row(base + timedelta(minutes=0), close=100.0, high=100.4, low=99.8),
+            session_row(base + timedelta(minutes=15), close=100.1, high=100.5, low=99.9),
+            session_row(base + timedelta(minutes=30), close=100.2, high=100.6, low=100.0),
+            {
+                "start": (base + timedelta(minutes=45)).isoformat(),
+                "end": (base + timedelta(minutes=75)).isoformat(),
+                "open": 100.3,
+                "high": 100.9,
+                "low": 100.1,
+                "close": 100.8,
+                "ticks": 10,
+                "gap_before": False,
+                "closed": True,
+            },
+            session_row(base + timedelta(minutes=75), close=100.9, high=101.0, low=100.6),
+        ]
+        result = expert.propose(rows)
+        self.assertEqual(result.side, Side.PASS)
+        self.assertEqual(result.reason, "RANGE_INCOMPLETE")
+
+    def test_session_breakout_complete_range_without_breakout_is_no_breakout(self):
+        expert = SessionRangeBreakoutExpert(
+            SessionBreakoutConfig(timezone_name="Europe/London")
+        )
+        base = datetime(2026, 1, 5, 8, 0, tzinfo=UTC)
+        rows = [
+            session_row(base + timedelta(minutes=0), close=100.0, high=100.4, low=99.8),
+            session_row(base + timedelta(minutes=15), close=100.1, high=100.5, low=99.9),
+            session_row(base + timedelta(minutes=30), close=100.2, high=100.6, low=100.0),
+            session_row(base + timedelta(minutes=45), close=100.3, high=100.7, low=100.1),
+            session_row(base + timedelta(minutes=60), close=100.4, high=100.5, low=100.2),
+        ]
+        result = expert.propose(rows)
+        self.assertEqual(result.side, Side.PASS)
+        self.assertEqual(result.reason, "NO_BREAKOUT")
+
+    def test_session_breakout_gap_within_complete_range_is_data_gap(self):
+        expert = SessionRangeBreakoutExpert(
+            SessionBreakoutConfig(timezone_name="Europe/London")
+        )
+        base = datetime(2026, 1, 5, 8, 0, tzinfo=UTC)
+        rows = [
+            session_row(base + timedelta(minutes=0), close=100.0, high=100.4, low=99.8),
+            session_row(base + timedelta(minutes=15), close=100.1, high=100.5, low=99.9),
+            session_row(base + timedelta(minutes=30), close=100.2, high=100.6, low=100.0),
+            session_row(base + timedelta(minutes=45), close=100.3, high=100.7, low=100.1),
+            session_row(base + timedelta(minutes=60), close=100.9, high=101.0, low=100.6),
+        ]
+        rows[2]["gap_before"] = True
+        result = expert.propose(rows)
+        self.assertEqual(result.side, Side.PASS)
+        self.assertEqual(result.reason, "DATA_GAP")
+
+    def test_session_breakout_gap_before_breakout_bar_is_data_gap(self):
+        expert = SessionRangeBreakoutExpert(
+            SessionBreakoutConfig(timezone_name="Europe/London")
+        )
+        base = datetime(2026, 1, 5, 8, 0, tzinfo=UTC)
+        rows = [
+            session_row(base + timedelta(minutes=0), close=100.0, high=100.4, low=99.8),
+            session_row(base + timedelta(minutes=15), close=100.1, high=100.5, low=99.9),
+            session_row(base + timedelta(minutes=30), close=100.2, high=100.6, low=100.0),
+            session_row(base + timedelta(minutes=45), close=100.3, high=100.7, low=100.1),
+            session_row(base + timedelta(minutes=60), close=100.9, high=101.0, low=100.6),
+        ]
+        rows[-1]["gap_before"] = True
+        result = expert.propose(rows)
+        self.assertEqual(result.side, Side.PASS)
+        self.assertEqual(result.reason, "DATA_GAP")
 
     def test_open_bar_is_rejected(self):
         expert = EmaTrendExpert(EmaTrendConfig(fast_period=2, slow_period=3))
