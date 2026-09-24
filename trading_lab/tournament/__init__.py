@@ -10,6 +10,18 @@ from .core import (
     TournamentRunner,
     default_experts,
 )
+from .candidate_feed import (
+    CandidateFeedValidationError,
+    CoreLeagueCandidate,
+    CoreLeagueCandidateFeed,
+    CoreLeagueCandidateFeedAdapter,
+)
+from .core_league import (
+    CoreLeagueEvaluationArtifact,
+    CoreLeagueEvaluationError,
+    CoreLeagueEvaluationHarness,
+    CoreLeagueEvaluationRow,
+)
 from .family_league import (
     FamilyEligibilityMatrixRow,
     IntraFamilyLeagueHarness,
@@ -18,17 +30,67 @@ from .family_league import (
     RankedVariant,
     VariantEligibility,
 )
+from .inter_family import (
+    FamilyChampion,
+    IneligibleFamily,
+    InterFamilyChampionshipHarness,
+    InterFamilyChampionshipResult,
+    PromotionContract,
+)
+from .selector_input import (
+    RejectedFamilyReason,
+    SelectorCandidate,
+    SelectorInputContract,
+    SelectorInputContractHarness,
+)
+from .selector_calibration import (
+    SelectorCalibrationArtifact,
+    SelectorCalibrationError,
+    SelectorCalibrationHarness,
+    SelectorCalibrationRow,
+)
+from .selector_ablation import (
+    SelectorAblationArtifact,
+    SelectorAblationError,
+    SelectorAblationHarness,
+    SelectorAblationRow,
+)
 
 __all__ = [
+    "CandidateFeedValidationError",
+    "CoreLeagueCandidate",
+    "CoreLeagueCandidateFeed",
+    "CoreLeagueCandidateFeedAdapter",
+    "CoreLeagueEvaluationArtifact",
+    "CoreLeagueEvaluationError",
+    "CoreLeagueEvaluationHarness",
+    "CoreLeagueEvaluationRow",
     "DatasetClass",
     "FamilyEligibilityMatrixRow",
+    "FamilyChampion",
+    "IneligibleFamily",
     "IntraFamilyLeagueHarness",
     "IntraFamilyLeagueResult",
+    "InterFamilyChampionshipHarness",
+    "InterFamilyChampionshipResult",
     "Opportunity",
     "PrerequisiteGateResult",
+    "PromotionContract",
     "REQUIRED_INTEGRITY_GATES",
     "RankedVariant",
+    "RejectedFamilyReason",
     "RuleBasedDecisionCore",
+    "SelectorAblationArtifact",
+    "SelectorAblationError",
+    "SelectorAblationHarness",
+    "SelectorAblationRow",
+    "SelectorCalibrationArtifact",
+    "SelectorCalibrationError",
+    "SelectorCalibrationHarness",
+    "SelectorCalibrationRow",
+    "SelectorCandidate",
+    "SelectorInputContract",
+    "SelectorInputContractHarness",
     "TournamentConfig",
     "TournamentDecision",
     "TournamentRun",
