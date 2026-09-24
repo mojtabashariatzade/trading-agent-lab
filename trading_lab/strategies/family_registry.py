@@ -7,7 +7,29 @@ entry to the Epic #38 taxonomy labels.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Literal
+
+
+_CONTRACT_ID_PATTERN = re.compile(r"^S(0[1-9]|1[0-5])$")
+
+_EXPECTED_CANONICAL_MAPPING: dict[str, tuple[int, str, str]] = {
+    "S01": (1, "EMA / trend-following", "DIRECT"),
+    "S02": (2, "Breakout / Donchian", "DIRECT"),
+    "S03": (7, "Volatility expansion/compression", "RECONCILED"),
+    "S04": (3, "Session-range breakout", "DIRECT"),
+    "S05": (1, "EMA / trend-following", "RECONCILED"),
+    "S06": (6, "RSI-style exhaustion/reversal", "DIRECT"),
+    "S07": (4, "Mean reversion / Bollinger re-entry", "DIRECT"),
+    "S08": (8, "Price-action / candle-structure", "RECONCILED"),
+    "S09": (10, "Multi-timeframe trend/regime", "DIRECT"),
+    "S10": (11, "Currency-strength / cross-sectional FX", "DIRECT"),
+    "S11": (12, "Carry / rate-differential regime", "DIRECT"),
+    "S12": (13, "Macro-surprise", "DIRECT"),
+    "S13": (13, "Macro-surprise", "RECONCILED"),
+    "S14": (14, "Central-bank communication/text", "DIRECT"),
+    "S15": (15, "News/event-risk reaction", "DIRECT"),
+}
 
 
 @dataclass(frozen=True)
@@ -25,14 +47,16 @@ class StrategyFamilyDefinition:
     data_prerequisites: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not self.contract_id.startswith("S"):
-            raise ValueError("contract_id must keep S01-S15 naming")
+        if not _CONTRACT_ID_PATTERN.fullmatch(self.contract_id):
+            raise ValueError("contract_id must be one of S01..S15")
         if not self.contract_name.strip() or not self.epic_family_name.strip():
             raise ValueError("family names are required")
         if not (1 <= self.epic_family_id <= 15):
             raise ValueError("epic_family_id must be in [1, 15]")
         if self.taxonomy_alignment not in {"DIRECT", "RECONCILED"}:
             raise ValueError("taxonomy_alignment must be DIRECT or RECONCILED")
+        if self.taxonomy_alignment == "DIRECT" and self.taxonomy_note.strip():
+            raise ValueError("direct mappings must keep taxonomy_note empty")
         if self.taxonomy_alignment == "RECONCILED" and not self.taxonomy_note.strip():
             raise ValueError("reconciled mappings require an explicit taxonomy_note")
 
@@ -57,6 +81,37 @@ class StrategyFamilyDefinition:
             raise ValueError("at least one eligibility filter is required")
         if not self.data_prerequisites:
             raise ValueError("data_prerequisites are required")
+
+
+def validated_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]:
+    """Return the default registry after strict identity/coverage checks.
+
+    This helper gives callers one canonical checked source so downstream code can
+    fail fast if accidental edits remove an expected contract family.
+    """
+
+    registry = default_strategy_family_registry()
+    if len(registry) != 15:
+        raise ValueError("registry must contain exactly 15 entries")
+    ids = [entry.contract_id for entry in registry]
+    expected_order = [f"S{i:02d}" for i in range(1, 16)]
+    if ids != expected_order:
+        raise ValueError("registry must be ordered by contract_id from S01 to S15")
+    unique_ids = set(ids)
+    expected_ids = {f"S{i:02d}" for i in range(1, 16)}
+    if unique_ids != expected_ids or len(ids) != len(unique_ids):
+        raise ValueError("registry must contain each of S01..S15 exactly once")
+
+    for entry in registry:
+        expected_epic_id, expected_epic_name, expected_alignment = _EXPECTED_CANONICAL_MAPPING[entry.contract_id]
+        if entry.epic_family_id != expected_epic_id:
+            raise ValueError(f"{entry.contract_id} must map to epic_family_id={expected_epic_id}")
+        if entry.epic_family_name != expected_epic_name:
+            raise ValueError(f"{entry.contract_id} must map to epic_family_name='{expected_epic_name}'")
+        if entry.taxonomy_alignment != expected_alignment:
+            raise ValueError(f"{entry.contract_id} must keep taxonomy_alignment={expected_alignment}")
+
+    return registry
 
 
 def default_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]:
@@ -261,4 +316,8 @@ def default_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]:
     )
 
 
-__all__ = ["StrategyFamilyDefinition", "default_strategy_family_registry"]
+__all__ = [
+    "StrategyFamilyDefinition",
+    "default_strategy_family_registry",
+    "validated_strategy_family_registry",
+]
