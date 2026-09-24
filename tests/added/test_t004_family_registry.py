@@ -49,6 +49,22 @@ class T004FamilyRegistryTests(unittest.TestCase):
                 data_prerequisites=("ohlcv_m15",),
             )
 
+    def test_direct_taxonomy_alignment_rejects_non_empty_note(self):
+        with self.assertRaises(ValueError):
+            StrategyFamilyDefinition(
+                contract_id="S01",
+                contract_name="EMA trend",
+                epic_family_id=1,
+                epic_family_name="EMA / trend-following",
+                taxonomy_alignment="DIRECT",
+                taxonomy_note="should be empty for direct mapping",
+                variant_count_bounds=(1, 2),
+                parameter_bounds={"x": (1.0, 2.0)},
+                filters=("f",),
+                horizon_bars=(1, 2),
+                data_prerequisites=("ohlcv_m15",),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

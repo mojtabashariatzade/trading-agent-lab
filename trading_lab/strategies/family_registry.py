@@ -37,6 +37,8 @@ class StrategyFamilyDefinition:
             raise ValueError("epic_family_id must be in [1, 15]")
         if self.taxonomy_alignment not in {"DIRECT", "RECONCILED"}:
             raise ValueError("taxonomy_alignment must be DIRECT or RECONCILED")
+        if self.taxonomy_alignment == "DIRECT" and self.taxonomy_note.strip():
+            raise ValueError("direct mappings must keep taxonomy_note empty")
         if self.taxonomy_alignment == "RECONCILED" and not self.taxonomy_note.strip():
             raise ValueError("reconciled mappings require an explicit taxonomy_note")
 
@@ -71,7 +73,12 @@ def validated_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]
     """
 
     registry = default_strategy_family_registry()
+    if len(registry) != 15:
+        raise ValueError("registry must contain exactly 15 entries")
     ids = [entry.contract_id for entry in registry]
+    expected_order = [f"S{i:02d}" for i in range(1, 16)]
+    if ids != expected_order:
+        raise ValueError("registry must be ordered by contract_id from S01 to S15")
     unique_ids = set(ids)
     expected_ids = {f"S{i:02d}" for i in range(1, 16)}
     if unique_ids != expected_ids or len(ids) != len(unique_ids):
