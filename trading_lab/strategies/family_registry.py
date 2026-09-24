@@ -13,6 +13,24 @@ from typing import Literal
 
 _CONTRACT_ID_PATTERN = re.compile(r"^S(0[1-9]|1[0-5])$")
 
+_EXPECTED_CANONICAL_MAPPING: dict[str, tuple[int, str, str]] = {
+    "S01": (1, "EMA / trend-following", "DIRECT"),
+    "S02": (2, "Breakout / Donchian", "DIRECT"),
+    "S03": (7, "Volatility expansion/compression", "RECONCILED"),
+    "S04": (3, "Session-range breakout", "DIRECT"),
+    "S05": (1, "EMA / trend-following", "RECONCILED"),
+    "S06": (6, "RSI-style exhaustion/reversal", "DIRECT"),
+    "S07": (4, "Mean reversion / Bollinger re-entry", "DIRECT"),
+    "S08": (8, "Price-action / candle-structure", "RECONCILED"),
+    "S09": (10, "Multi-timeframe trend/regime", "DIRECT"),
+    "S10": (11, "Currency-strength / cross-sectional FX", "DIRECT"),
+    "S11": (12, "Carry / rate-differential regime", "DIRECT"),
+    "S12": (13, "Macro-surprise", "DIRECT"),
+    "S13": (13, "Macro-surprise", "RECONCILED"),
+    "S14": (14, "Central-bank communication/text", "DIRECT"),
+    "S15": (15, "News/event-risk reaction", "DIRECT"),
+}
+
 
 @dataclass(frozen=True)
 class StrategyFamilyDefinition:
@@ -83,6 +101,16 @@ def validated_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]
     expected_ids = {f"S{i:02d}" for i in range(1, 16)}
     if unique_ids != expected_ids or len(ids) != len(unique_ids):
         raise ValueError("registry must contain each of S01..S15 exactly once")
+
+    for entry in registry:
+        expected_epic_id, expected_epic_name, expected_alignment = _EXPECTED_CANONICAL_MAPPING[entry.contract_id]
+        if entry.epic_family_id != expected_epic_id:
+            raise ValueError(f"{entry.contract_id} must map to epic_family_id={expected_epic_id}")
+        if entry.epic_family_name != expected_epic_name:
+            raise ValueError(f"{entry.contract_id} must map to epic_family_name='{expected_epic_name}'")
+        if entry.taxonomy_alignment != expected_alignment:
+            raise ValueError(f"{entry.contract_id} must keep taxonomy_alignment={expected_alignment}")
+
     return registry
 
 

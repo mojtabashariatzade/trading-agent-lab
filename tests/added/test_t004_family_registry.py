@@ -1,9 +1,11 @@
 """Acceptance-style checks for the canonical strategy-family registry (Issue #38)."""
 
 import unittest
+from unittest import mock
 
 from trading_lab.strategies.family_registry import (
     StrategyFamilyDefinition,
+    default_strategy_family_registry,
     validated_strategy_family_registry,
 )
 
@@ -64,6 +66,30 @@ class T004FamilyRegistryTests(unittest.TestCase):
                 horizon_bars=(1, 2),
                 data_prerequisites=("ohlcv_m15",),
             )
+
+    def test_validated_registry_rejects_canonical_epic_mapping_drift(self):
+        registry = list(default_strategy_family_registry())
+        wrong = registry[0]
+        registry[0] = StrategyFamilyDefinition(
+            contract_id=wrong.contract_id,
+            contract_name=wrong.contract_name,
+            epic_family_id=2,
+            epic_family_name=wrong.epic_family_name,
+            taxonomy_alignment=wrong.taxonomy_alignment,
+            taxonomy_note=wrong.taxonomy_note,
+            variant_count_bounds=wrong.variant_count_bounds,
+            parameter_bounds=wrong.parameter_bounds,
+            filters=wrong.filters,
+            horizon_bars=wrong.horizon_bars,
+            data_prerequisites=wrong.data_prerequisites,
+        )
+
+        with mock.patch(
+            "trading_lab.strategies.family_registry.default_strategy_family_registry",
+            return_value=tuple(registry),
+        ):
+            with self.assertRaisesRegex(ValueError, "S01 must map to epic_family_id=1"):
+                validated_strategy_family_registry()
 
 
 if __name__ == "__main__":
