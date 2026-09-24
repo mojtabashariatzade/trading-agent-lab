@@ -49,6 +49,12 @@ from .selector_calibration import (
     SelectorCalibrationHarness,
     SelectorCalibrationRow,
 )
+from .selector_ablation import (
+    SelectorAblationArtifact,
+    SelectorAblationError,
+    SelectorAblationHarness,
+    SelectorAblationRow,
+)
 
 __all__ = [
     "CandidateFeedValidationError",
@@ -74,6 +80,10 @@ __all__ = [
     "RankedVariant",
     "RejectedFamilyReason",
     "RuleBasedDecisionCore",
+    "SelectorAblationArtifact",
+    "SelectorAblationError",
+    "SelectorAblationHarness",
+    "SelectorAblationRow",
     "SelectorCalibrationArtifact",
     "SelectorCalibrationError",
     "SelectorCalibrationHarness",
