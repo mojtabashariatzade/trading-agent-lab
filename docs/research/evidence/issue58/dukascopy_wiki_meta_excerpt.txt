@@ -1,0 +1,3 @@
+<title>Dukascopy - Historical Price Data</title>
+<meta name="description" content="Accessing Historical Price Data from Public S3 Bucket with Requester Pays Policy">
+Source URL: https://www.dukascopy.com/wiki/en/development/data-export/
