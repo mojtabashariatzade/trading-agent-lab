@@ -464,6 +464,11 @@ class T006SamplingReadinessTests(unittest.TestCase):
             self.assertTrue(report.downloaded)
             self.assertEqual(report.status, AcquisitionStatus.DOWNLOADED)
             self.assertIs(report.manifest, real_manifest)
+            self.assertEqual(report.classification, "DOWNLOADED_VERIFIED_SAMPLE")
+            report_payload = report.as_dict()
+            self.assertEqual(report_payload["classification"], "DOWNLOADED_VERIFIED_SAMPLE")
+            self.assertTrue(report_payload["manifest_available"])
+            self.assertIn("manifest", report_payload)
 
             fixture_manifest = build_manifest(
                 payload_path=path,
@@ -478,6 +483,21 @@ class T006SamplingReadinessTests(unittest.TestCase):
             )
             with self.assertRaises(ValueError):
                 adapter.downloaded_report(allowed, fixture_manifest)
+
+    def test_readiness_report_as_dict_marks_unverified_without_manifest(self):
+        adapter = DukascopySamplingAdapter()
+        plan = adapter.plan(
+            instrument="GBPJPY",
+            requested_start=T0,
+            requested_end=T0 + timedelta(hours=1),
+        )
+        report = adapter.readiness_report(plan)
+
+        self.assertEqual(report.classification, "UNVERIFIED_NO_SAMPLE")
+        report_payload = report.as_dict()
+        self.assertEqual(report_payload["classification"], "UNVERIFIED_NO_SAMPLE")
+        self.assertFalse(report_payload["manifest_available"])
+        self.assertNotIn("manifest", report_payload)
 
     def test_downloaded_report_requires_legal_and_source_provenance(self):
         adapter = DukascopySamplingAdapter()

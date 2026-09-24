@@ -66,6 +66,11 @@ class SamplingReport:
     note: str
 
     def __post_init__(self) -> None:
+        for name in ("provider_id", "adapter_version"):
+            value = str(getattr(self, name)).strip()
+            if not value:
+                raise ValueError(f"{name} is required")
+            object.__setattr__(self, name, value)
         if not isinstance(self.status, AcquisitionStatus):
             raise ValueError("Typed AcquisitionStatus required")
         if not isinstance(self.terms_status, TermsStatus):
@@ -78,6 +83,39 @@ class SamplingReport:
         else:
             if self.status == AcquisitionStatus.DOWNLOADED:
                 raise ValueError("DOWNLOADED status requires downloaded=True")
+
+    @property
+    def classification(self) -> str:
+        """Explicit machine-readable distinction between downloaded and unverified states."""
+        if self.status == AcquisitionStatus.DOWNLOADED:
+            return "DOWNLOADED_VERIFIED_SAMPLE"
+        if self.status == AcquisitionStatus.BLOCKED:
+            return "BLOCKED_BY_TERMS"
+        return "UNVERIFIED_NO_SAMPLE"
+
+    def as_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "provider_id": self.provider_id,
+            "adapter_version": self.adapter_version,
+            "status": self.status.value,
+            "terms_status": self.terms_status.value,
+            "downloaded": self.downloaded,
+            "classification": self.classification,
+            "note": self.note,
+            "manifest_available": self.manifest is not None,
+        }
+        if self.manifest is not None:
+            payload["manifest"] = {
+                "dataset_id": self.manifest.dataset_id,
+                "provider_id": self.manifest.provider_id,
+                "provider_version": self.manifest.provider_version,
+                "actual_start": self.manifest.actual_start.isoformat(),
+                "actual_end": self.manifest.actual_end.isoformat(),
+                "record_count": self.manifest.record_count,
+                "gap_count": len(self.manifest.gaps),
+                "checksum_sha256": self.manifest.checksum_sha256,
+            }
+        return payload
 
 
 class DukascopySamplingAdapter:
