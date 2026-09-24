@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-from typing import Literal
+from typing import Iterable, Literal
 
 
 _CONTRACT_ID_PATTERN = re.compile(r"^S(0[1-9]|1[0-5])$")
@@ -81,6 +81,25 @@ class StrategyFamilyDefinition:
             raise ValueError("at least one eligibility filter is required")
         if not self.data_prerequisites:
             raise ValueError("data_prerequisites are required")
+
+
+@dataclass(frozen=True)
+class FamilyEligibility:
+    contract_id: str
+    eligible: bool
+    missing_prerequisites: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not _CONTRACT_ID_PATTERN.fullmatch(self.contract_id):
+            raise ValueError("contract_id must be one of S01..S15")
+        normalized = tuple(sorted({str(item).strip() for item in self.missing_prerequisites if str(item).strip()}))
+        object.__setattr__(self, "missing_prerequisites", normalized)
+        if self.eligible and normalized:
+            raise ValueError("eligible entries may not include missing_prerequisites")
+
+
+def _normalized_capabilities(available_prerequisites: Iterable[str]) -> set[str]:
+    return {str(item).strip() for item in available_prerequisites if str(item).strip()}
 
 
 def validated_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]:
@@ -316,7 +335,40 @@ def default_strategy_family_registry() -> tuple[StrategyFamilyDefinition, ...]:
     )
 
 
+def family_definition_by_contract_id(contract_id: str) -> StrategyFamilyDefinition:
+    """Return one canonical family definition for a contract ID (S01..S15)."""
+
+    contract_id = str(contract_id).strip().upper()
+    for entry in validated_strategy_family_registry():
+        if entry.contract_id == contract_id:
+            return entry
+    raise KeyError(f"Unknown contract_id: {contract_id}")
+
+
+def family_eligibility_matrix(*, available_prerequisites: Iterable[str]) -> tuple[FamilyEligibility, ...]:
+    """Compute eligibility per contract family from available point-in-time prerequisites.
+
+    Families are eligible only when all declared data_prerequisites are available.
+    """
+
+    available = _normalized_capabilities(available_prerequisites)
+    matrix: list[FamilyEligibility] = []
+    for entry in validated_strategy_family_registry():
+        missing = tuple(sorted(prereq for prereq in entry.data_prerequisites if prereq not in available))
+        matrix.append(
+            FamilyEligibility(
+                contract_id=entry.contract_id,
+                eligible=not missing,
+                missing_prerequisites=missing,
+            )
+        )
+    return tuple(matrix)
+
+
 __all__ = [
+    "FamilyEligibility",
+    "family_definition_by_contract_id",
+    "family_eligibility_matrix",
     "StrategyFamilyDefinition",
     "default_strategy_family_registry",
     "validated_strategy_family_registry",
