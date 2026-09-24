@@ -3,7 +3,6 @@ import base64
 import importlib.util
 import io
 import json
-import os
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -15,12 +14,6 @@ from urllib import request, error
 from http.server import ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[2] / 'deploy/n8n'
-
-def chmod_mode_probe(base: Path) -> int:
-    probe = base / '.chmod-probe'
-    probe.mkdir()
-    os.chmod(probe, 0o700)
-    return probe.stat().st_mode & 0o777
 
 def load(name):
     spec=importlib.util.spec_from_file_location('n8n_'+name,ROOT/(name+'.py'))
@@ -172,12 +165,7 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(before,(root/'.private/encryption').read_text())
             cfg=json.loads((root/'.private/connections').read_text())
             self.assertFalse(cfg['telegram_polling_enabled']);self.assertFalse(cfg['worker_handoff_enabled'])
-            observed_mode=(root/'.private').stat().st_mode & 0o777
-            probe_mode=chmod_mode_probe(root)
-            if probe_mode==0o700:
-                self.assertEqual(observed_mode,0o700)
-            else:
-                self.assertEqual(observed_mode,probe_mode)
+            self.assertEqual((root/'.private').stat().st_mode & 0o777,0o700)
     def test_prepare_will_not_overwrite_unmarked_state(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);(root/'.private').mkdir()
