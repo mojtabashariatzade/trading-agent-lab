@@ -25,6 +25,12 @@ from .inter_family import (
     InterFamilyChampionshipResult,
     PromotionContract,
 )
+from .selector_input import (
+    RejectedFamilyReason,
+    SelectorCandidate,
+    SelectorInputContract,
+    SelectorInputContractHarness,
+)
 
 __all__ = [
     "DatasetClass",
@@ -40,7 +46,11 @@ __all__ = [
     "PromotionContract",
     "REQUIRED_INTEGRITY_GATES",
     "RankedVariant",
+    "RejectedFamilyReason",
     "RuleBasedDecisionCore",
+    "SelectorCandidate",
+    "SelectorInputContract",
+    "SelectorInputContractHarness",
     "TournamentConfig",
     "TournamentDecision",
     "TournamentRun",
