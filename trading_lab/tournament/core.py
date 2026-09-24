@@ -191,13 +191,36 @@ class TournamentRun:
     def leaderboard_eligible(self) -> bool:
         return not self.ranking_blockers()
 
-    def real_performance_rows(self):
+    def real_performance_rows(self) -> tuple[dict[str, object], ...]:
         blockers = self.ranking_blockers()
         if blockers:
             raise RuntimeError(self._blocked_message(path_name="REAL_PERFORMANCE_ROWS"))
-        raise RuntimeError(
-            "REAL_PERFORMANCE_ROWS_NOT_IMPLEMENTED: run is integrity-eligible, but row materialization is not implemented yet"
-        )
+
+        rows: list[dict[str, object]] = []
+        for trade in self.trades:
+            result = trade.result
+            rows.append(
+                {
+                    "run_id": self.run_id,
+                    "dataset_id": self.dataset_id,
+                    "opportunity_id": trade.opportunity_id,
+                    "strategy_ids": trade.strategy_ids,
+                    "side": result.side,
+                    "entry_at": result.entry_at,
+                    "entry_price": result.entry_price,
+                    "exit_at": result.exit_at,
+                    "exit_price": result.exit_price,
+                    "exit_reason": result.reason.value,
+                    "gross_pnl": result.gross_pnl,
+                    "commission_paid": result.commission_paid,
+                    "net_pnl": result.net_pnl,
+                    "risk_amount": result.risk_amount,
+                    "r_multiple": result.r_multiple,
+                    "ambiguous_m1": result.ambiguous_m1,
+                    "censored": result.censored,
+                }
+            )
+        return tuple(rows)
 
 
 class RuleBasedDecisionCore:
