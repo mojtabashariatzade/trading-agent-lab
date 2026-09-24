@@ -16,6 +16,12 @@ from .candidate_feed import (
     CoreLeagueCandidateFeed,
     CoreLeagueCandidateFeedAdapter,
 )
+from .core_league import (
+    CoreLeagueEvaluationArtifact,
+    CoreLeagueEvaluationError,
+    CoreLeagueEvaluationHarness,
+    CoreLeagueEvaluationRow,
+)
 from .family_league import (
     FamilyEligibilityMatrixRow,
     IntraFamilyLeagueHarness,
@@ -43,6 +49,10 @@ __all__ = [
     "CoreLeagueCandidate",
     "CoreLeagueCandidateFeed",
     "CoreLeagueCandidateFeedAdapter",
+    "CoreLeagueEvaluationArtifact",
+    "CoreLeagueEvaluationError",
+    "CoreLeagueEvaluationHarness",
+    "CoreLeagueEvaluationRow",
     "DatasetClass",
     "FamilyEligibilityMatrixRow",
     "FamilyChampion",
