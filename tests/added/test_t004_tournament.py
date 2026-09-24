@@ -547,6 +547,60 @@ class T004TournamentTests(unittest.TestCase):
         self.assertEqual(run.ranking_blockers(), ())
         self.assertEqual(len(run.trades), 1)
 
+    def test_real_performance_rows_returns_materialized_rows_when_eligible(self):
+        at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
+        runner = TournamentRunner(experts=[FixedExpert("A", Side.BUY)])
+        run = runner.run(
+            run_id="real-materialized-rows",
+            dataset_id="real-sample",
+            dataset_class=DatasetClass.REAL_OBSERVATION,
+            integrity_gates_completed=REQUIRED_INTEGRITY_GATES,
+            opportunities=[
+                Opportunity(
+                    "O1",
+                    at,
+                    m15_rows=m15_rows(at),
+                    entry_quote=Quote(at, 100.0, 100.2),
+                    m1_bars=[m1(at)],
+                    accounting_state=AccountingState(
+                        decision_time_utc=at,
+                        account_snapshot_time_utc=at,
+                        max_snapshot_age_seconds=60,
+                        instrument="GBPJPY",
+                        account_currency="JPY",
+                        equity=100.0,
+                        cash_available=90.0,
+                        unrealized_pnl=10.0,
+                        min_cash_required=20.0,
+                        free_margin=50.0,
+                        required_margin=30.0,
+                        overlap_detected=False,
+                        net_exposure_after_candidate=0.2,
+                        max_abs_exposure_limit=1.0,
+                        open_positions_same_instrument=0,
+                        max_positions_same_instrument=1,
+                        rollover_due=1.5,
+                        rollover_charged=1.5,
+                        mtm_tolerance_abs=1e-9,
+                        rollover_tolerance_abs=1e-9,
+                        rollover_due_date_utc=date(2026, 1, 5),
+                        rollover_charge_date_utc=date(2026, 1, 5),
+                    ),
+                )
+            ],
+            created_at=at,
+        )
+
+        rows = run.real_performance_rows()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["run_id"], "real-materialized-rows")
+        self.assertEqual(rows[0]["dataset_id"], "real-sample")
+        self.assertEqual(rows[0]["opportunity_id"], "O1")
+        self.assertEqual(rows[0]["strategy_ids"], ("A",))
+        self.assertEqual(rows[0]["side"], "BUY")
+        self.assertIn("entry_at", rows[0])
+        self.assertIn("exit_reason", rows[0])
+
     def test_real_performance_rows_reports_integrity_gate_blockers_clearly(self):
         at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
         blocked = TournamentRun(
