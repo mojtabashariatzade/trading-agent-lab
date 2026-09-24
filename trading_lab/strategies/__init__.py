@@ -3,6 +3,8 @@ from .contracts import ExitConfig, ExitLeague, Side, StrategyProposal
 from .experts import (
     BollingerReentryConfig,
     BollingerReentryExpert,
+    DonchianBreakoutConfig,
+    DonchianBreakoutExpert,
     EmaTrendConfig,
     EmaTrendExpert,
     SessionBreakoutConfig,
@@ -22,6 +24,8 @@ from .family_registry import (
 __all__ = [
     "BollingerReentryConfig",
     "BollingerReentryExpert",
+    "DonchianBreakoutConfig",
+    "DonchianBreakoutExpert",
     "EmaTrendConfig",
     "EmaTrendExpert",
     "ExitConfig",

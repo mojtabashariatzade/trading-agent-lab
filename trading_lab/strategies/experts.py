@@ -156,6 +156,88 @@ class EmaTrendExpert:
 
 
 @dataclass(frozen=True)
+class DonchianBreakoutConfig:
+    lookback: int = 20
+    breakout_buffer: float = 0.0
+    expiry_bars: int = 3
+    native_exit: ExitConfig = field(default_factory=lambda: ExitConfig(0.30, 0.70))
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "lookback", _positive_int(self.lookback, "lookback"))
+        object.__setattr__(self, "breakout_buffer", float(self.breakout_buffer))
+        if self.breakout_buffer < 0:
+            raise ValueError("breakout_buffer must be non-negative")
+        object.__setattr__(self, "expiry_bars", _positive_int(self.expiry_bars, "expiry_bars"))
+
+
+class DonchianBreakoutExpert:
+    """Donchian-channel breakout from closed bars only (S02 family seed)."""
+
+    strategy_id = "DONCHIAN_BREAKOUT"
+    version = "1.0.0"
+
+    def __init__(self, config: DonchianBreakoutConfig | None = None):
+        self.config = config or DonchianBreakoutConfig()
+
+    def propose(
+        self,
+        rows: Sequence[Mapping[str, object]],
+        *,
+        league: ExitLeague = ExitLeague.NATIVE,
+        shared_exit: ExitConfig | None = None,
+    ) -> StrategyProposal:
+        bars = closed_bars(rows)
+        need = self.config.lookback + 1
+        if len(bars) < need:
+            return self._pass(bars, league, shared_exit, "INSUFFICIENT_HISTORY")
+
+        window = bars[-need:]
+        if any(bar.gap_before for bar in window[1:]):
+            return self._pass(bars, league, shared_exit, "DATA_GAP")
+
+        channel = window[:-1]
+        latest = window[-1]
+        channel_high = max(bar.high for bar in channel)
+        channel_low = min(bar.low for bar in channel)
+        upper_trigger = channel_high + self.config.breakout_buffer
+        lower_trigger = channel_low - self.config.breakout_buffer
+
+        if latest.close > upper_trigger:
+            side, reason = Side.BUY, "CLOSED_ABOVE_DONCHIAN_HIGH"
+        elif latest.close < lower_trigger:
+            side, reason = Side.SELL, "CLOSED_BELOW_DONCHIAN_LOW"
+        else:
+            side, reason = Side.PASS, "NO_BREAKOUT"
+
+        return _proposal(
+            strategy_id=self.strategy_id,
+            version=self.version,
+            bars=bars,
+            side=side,
+            reason=reason,
+            expiry_bars=self.config.expiry_bars,
+            league=league,
+            native_exit=self.config.native_exit,
+            shared_exit=shared_exit,
+        )
+
+    def _pass(self, bars, league, shared_exit, reason):
+        if not bars:
+            raise ValueError("At least one closed bar is required")
+        return _proposal(
+            strategy_id=self.strategy_id,
+            version=self.version,
+            bars=bars,
+            side=Side.PASS,
+            reason=reason,
+            expiry_bars=self.config.expiry_bars,
+            league=league,
+            native_exit=self.config.native_exit,
+            shared_exit=shared_exit,
+        )
+
+
+@dataclass(frozen=True)
 class BollingerReentryConfig:
     window: int = 20
     deviations: float = 2.0
