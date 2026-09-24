@@ -380,7 +380,7 @@ class T004TournamentTests(unittest.TestCase):
         self.assertEqual(full_tail.trades, ())
         self.assertEqual(missing_tail.trades, ())
 
-    def test_default_three_experts_connect_end_to_end_and_can_all_pass(self):
+    def test_default_expert_lineup_connects_end_to_end_and_can_all_pass(self):
         at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
         runner = TournamentRunner()
         run = runner.run(
@@ -399,11 +399,16 @@ class T004TournamentTests(unittest.TestCase):
         )
         self.assertEqual(
             tuple(x[0] for x in run.strategy_versions),
-            ("BOLLINGER_REENTRY", "EMA_TREND", "SESSION_RANGE_BREAKOUT"),
+            (
+                "BOLLINGER_REENTRY",
+                "DONCHIAN_BREAKOUT",
+                "EMA_TREND",
+                "SESSION_RANGE_BREAKOUT",
+            ),
         )
         self.assertEqual(run.decisions[0].side, Side.PASS)
         self.assertEqual(run.decisions[0].reason, "ALL_PASS")
-        self.assertEqual(len(run.proposals), 3)
+        self.assertEqual(len(run.proposals), 4)
 
     def test_synthetic_run_cannot_be_real_performance(self):
         at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)

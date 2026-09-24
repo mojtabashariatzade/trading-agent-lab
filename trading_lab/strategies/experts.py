@@ -1,4 +1,4 @@
-"""Three deterministic research strategy experts for T003."""
+"""Deterministic research strategy experts for T003 and Epic #38 slices."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -23,6 +23,7 @@ from trading_lab.execution.kernel import (
 )
 from trading_lab.strategies import (
     BollingerReentryExpert,
+    DonchianBreakoutExpert,
     EmaTrendExpert,
     ExitConfig,
     ExitLeague,
@@ -319,6 +320,7 @@ class RuleBasedDecisionCore:
 def default_experts():
     return (
         EmaTrendExpert(),
+        DonchianBreakoutExpert(),
         BollingerReentryExpert(),
         SessionRangeBreakoutExpert(),
     )
