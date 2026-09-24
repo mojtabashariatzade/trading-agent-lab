@@ -1,4 +1,10 @@
 """Market data helpers and sampling-readiness contracts; no live feeds."""
+from .collector import (
+    CollectionState,
+    CollectionWindow,
+    CollectorCheckpoint,
+    LocalCheckpointStore,
+)
 from .imports import (
     AcquisitionStatus,
     DataClass,
@@ -23,11 +29,15 @@ from .sampling import (
 
 __all__ = [
     "AcquisitionStatus",
+    "CollectionState",
+    "CollectionWindow",
+    "CollectorCheckpoint",
     "DataClass",
     "DataManifest",
     "DukascopySamplingAdapter",
     "Gap",
     "IntegrityCheckError",
+    "LocalCheckpointStore",
     "MetadataBinding",
     "RecordBinding",
     "SamplePlan",
