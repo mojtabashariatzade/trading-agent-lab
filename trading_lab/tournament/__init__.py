@@ -55,6 +55,12 @@ from .selector_ablation import (
     SelectorAblationHarness,
     SelectorAblationRow,
 )
+from .phase_b_evidence import (
+    PhaseBEvidenceBundle,
+    PhaseBEvidenceBundleHarness,
+    PhaseBEvidenceError,
+    StageEvidenceRef,
+)
 
 __all__ = [
     "CandidateFeedValidationError",
@@ -74,12 +80,16 @@ __all__ = [
     "InterFamilyChampionshipHarness",
     "InterFamilyChampionshipResult",
     "Opportunity",
+    "PhaseBEvidenceBundle",
+    "PhaseBEvidenceBundleHarness",
+    "PhaseBEvidenceError",
     "PrerequisiteGateResult",
     "PromotionContract",
     "REQUIRED_INTEGRITY_GATES",
     "RankedVariant",
     "RejectedFamilyReason",
     "RuleBasedDecisionCore",
+    "StageEvidenceRef",
     "SelectorAblationArtifact",
     "SelectorAblationError",
     "SelectorAblationHarness",
