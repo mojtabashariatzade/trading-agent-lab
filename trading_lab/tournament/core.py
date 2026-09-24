@@ -382,11 +382,10 @@ class TournamentRunner:
 
     @staticmethod
     def _data_ready(opportunity: Opportunity) -> bool:
-        return bool(
-            opportunity.m15_rows
-            and opportunity.entry_quote is not None
-            and opportunity.m1_bars
-        )
+        # Entry eligibility is causal: require decision-time strategy features and
+        # an executable entry quote. Missing future execution bars must not change
+        # the entry decision; they produce a censored trade outcome instead.
+        return bool(opportunity.m15_rows and opportunity.entry_quote is not None)
 
     @staticmethod
     def _validate_causal_m15(opportunity: Opportunity) -> None:
