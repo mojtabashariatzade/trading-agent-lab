@@ -102,6 +102,8 @@ class FamilyEligibility:
 
         if self.eligible and (normalized_prereqs or normalized_filters or not self.horizon_eligible):
             raise ValueError("eligible entries may not include missing prerequisites, missing filters, or horizon mismatches")
+        if (not self.eligible) and (not normalized_prereqs) and self.horizon_eligible and (not normalized_filters):
+            raise ValueError("ineligible entries must include at least one explicit reason")
 
 
 @dataclass(frozen=True)

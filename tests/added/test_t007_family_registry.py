@@ -77,6 +77,15 @@ class T007FamilyRegistryTests(unittest.TestCase):
                 horizon_eligible=False,
             )
 
+        with self.assertRaises(ValueError):
+            FamilyEligibility(
+                contract_id="S01",
+                eligible=False,
+                missing_prerequisites=(),
+                horizon_eligible=True,
+                missing_regime_filters=(),
+            )
+
     def test_eligibility_matrix_requires_iterable_tokens_not_raw_string(self):
         with self.assertRaises(TypeError):
             family_eligibility_matrix(available_prerequisites="ohlcv_m15")
