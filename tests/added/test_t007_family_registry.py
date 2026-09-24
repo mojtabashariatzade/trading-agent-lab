@@ -61,6 +61,14 @@ class T007FamilyRegistryTests(unittest.TestCase):
         )
         self.assertEqual(item.missing_prerequisites, ("ohlcv_m15", "spread_bid_ask"))
         self.assertEqual(item.missing_regime_filters, ("spread_max_pips",))
+        self.assertEqual(
+            item.blocking_reasons,
+            (
+                "missing_prerequisite:ohlcv_m15",
+                "missing_prerequisite:spread_bid_ask",
+                "missing_regime_filter:spread_max_pips",
+            ),
+        )
 
         with self.assertRaises(ValueError):
             FamilyEligibility(
