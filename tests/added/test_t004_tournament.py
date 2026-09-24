@@ -220,6 +220,148 @@ class T004TournamentTests(unittest.TestCase):
         self.assertEqual(run.decisions[0].reason, "SINGLE_EXPERT")
         self.assertEqual(run.decisions[1].reason, "POSITION_OPEN")
 
+    def test_missing_future_tail_keeps_entry_decision_identical(self):
+        at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
+        runner = TournamentRunner(
+            experts=[FixedExpert("A", Side.BUY)],
+            config=TournamentConfig(max_holding_minutes=5, commission_per_side=0.25),
+        )
+        base_rows = m15_rows(at)
+
+        run_full = runner.run(
+            run_id="future-full",
+            dataset_id="fixture-causal-entry",
+            opportunities=[
+                Opportunity(
+                    "O1",
+                    at,
+                    m15_rows=base_rows,
+                    entry_quote=Quote(at, 100.0, 100.2),
+                    m1_bars=[m1(at + timedelta(minutes=i)) for i in range(5)],
+                )
+            ],
+            created_at=at,
+        )
+        run_missing_tail = runner.run(
+            run_id="future-missing",
+            dataset_id="fixture-causal-entry",
+            opportunities=[
+                Opportunity(
+                    "O1",
+                    at,
+                    m15_rows=base_rows,
+                    entry_quote=Quote(at, 100.0, 100.2),
+                    m1_bars=[],
+                )
+            ],
+            created_at=at,
+        )
+
+        self.assertEqual(run_full.decisions[0].side, Side.BUY)
+        self.assertEqual(run_missing_tail.decisions[0].side, Side.BUY)
+        self.assertEqual(run_full.decisions[0].reason, "SINGLE_EXPERT")
+        self.assertEqual(run_missing_tail.decisions[0].reason, "SINGLE_EXPERT")
+        self.assertEqual(run_full.decisions[0].strategy_ids, ("A",))
+        self.assertEqual(run_missing_tail.decisions[0].strategy_ids, ("A",))
+
+        censored = run_missing_tail.trades[0].result
+        self.assertEqual(censored.reason.value, "CENSORED")
+        self.assertIsNone(censored.exit_at)
+        self.assertIsNone(censored.exit_price)
+        self.assertIsNone(censored.gross_pnl)
+        self.assertIsNone(censored.net_pnl)
+        self.assertEqual(censored.commission_paid, 0.25)
+
+    def test_censored_position_from_missing_tail_blocks_later_entries(self):
+        t0 = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
+        runner = TournamentRunner(
+            experts=[FixedExpert("A", Side.BUY)],
+            config=TournamentConfig(max_holding_minutes=3, shared_exit=ExitConfig(10.0, 10.0)),
+        )
+        run = runner.run(
+            run_id="missing-tail-blocks",
+            dataset_id="fixture-censored-open",
+            opportunities=[
+                Opportunity(
+                    "O1",
+                    t0,
+                    m15_rows=m15_rows(t0),
+                    entry_quote=Quote(t0, 100.0, 100.2),
+                    m1_bars=[],
+                ),
+                Opportunity(
+                    "O2",
+                    t0 + timedelta(minutes=1),
+                    m15_rows=m15_rows(t0),
+                    entry_quote=Quote(t0 + timedelta(minutes=1), 100.0, 100.2),
+                    m1_bars=[m1(t0 + timedelta(minutes=1))],
+                ),
+            ],
+            created_at=t0,
+        )
+        self.assertEqual(run.decisions[0].reason, "SINGLE_EXPERT")
+        self.assertEqual(run.trades[0].result.reason.value, "CENSORED")
+        self.assertEqual(run.decisions[1].reason, "POSITION_OPEN")
+        self.assertEqual(len(run.trades), 1)
+
+    def test_missing_entry_quote_remains_data_required_even_with_future_tail(self):
+        at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
+        runner = TournamentRunner(experts=[FixedExpert("A", Side.BUY)])
+        run = runner.run(
+            run_id="missing-entry-quote",
+            dataset_id="fixture-missing-entry-quote",
+            opportunities=[
+                Opportunity(
+                    "O1",
+                    at,
+                    m15_rows=m15_rows(at),
+                    entry_quote=None,
+                    m1_bars=[m1(at + timedelta(minutes=i)) for i in range(3)],
+                )
+            ],
+            created_at=at,
+        )
+        self.assertEqual(run.decisions[0].reason, "DATA_REQUIRED")
+        self.assertEqual(run.trades, ())
+
+    def test_direction_conflict_is_unchanged_when_future_tail_is_missing(self):
+        at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
+        runner = TournamentRunner(
+            experts=[FixedExpert("A", Side.BUY), FixedExpert("B", Side.SELL)]
+        )
+        full_tail = runner.run(
+            run_id="conflict-full-tail",
+            dataset_id="fixture-conflict-tail",
+            opportunities=[
+                Opportunity(
+                    "O1",
+                    at,
+                    m15_rows=m15_rows(at),
+                    entry_quote=Quote(at, 100.0, 100.2),
+                    m1_bars=[m1(at + timedelta(minutes=i)) for i in range(2)],
+                )
+            ],
+            created_at=at,
+        )
+        missing_tail = runner.run(
+            run_id="conflict-missing-tail",
+            dataset_id="fixture-conflict-tail",
+            opportunities=[
+                Opportunity(
+                    "O1",
+                    at,
+                    m15_rows=m15_rows(at),
+                    entry_quote=Quote(at, 100.0, 100.2),
+                    m1_bars=[],
+                )
+            ],
+            created_at=at,
+        )
+        self.assertEqual(full_tail.decisions[0].reason, "DIRECTION_CONFLICT")
+        self.assertEqual(missing_tail.decisions[0].reason, "DIRECTION_CONFLICT")
+        self.assertEqual(full_tail.trades, ())
+        self.assertEqual(missing_tail.trades, ())
+
     def test_default_three_experts_connect_end_to_end_and_can_all_pass(self):
         at = datetime(2026, 1, 5, 10, 0, tzinfo=UTC)
         runner = TournamentRunner()
