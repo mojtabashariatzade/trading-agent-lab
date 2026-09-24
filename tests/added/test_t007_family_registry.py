@@ -57,8 +57,10 @@ class T007FamilyRegistryTests(unittest.TestCase):
             contract_id="S01",
             eligible=False,
             missing_prerequisites=("", "ohlcv_m15", "ohlcv_m15", "spread_bid_ask"),
+            missing_regime_filters=("", "spread_max_pips", "spread_max_pips"),
         )
         self.assertEqual(item.missing_prerequisites, ("ohlcv_m15", "spread_bid_ask"))
+        self.assertEqual(item.missing_regime_filters, ("spread_max_pips",))
 
         with self.assertRaises(ValueError):
             FamilyEligibility(
@@ -67,12 +69,55 @@ class T007FamilyRegistryTests(unittest.TestCase):
                 missing_prerequisites=("ohlcv_m15",),
             )
 
+        with self.assertRaises(ValueError):
+            FamilyEligibility(
+                contract_id="S01",
+                eligible=True,
+                missing_prerequisites=(),
+                horizon_eligible=False,
+            )
+
     def test_eligibility_matrix_requires_iterable_tokens_not_raw_string(self):
         with self.assertRaises(TypeError):
             family_eligibility_matrix(available_prerequisites="ohlcv_m15")
 
         with self.assertRaises(TypeError):
             family_eligibility_matrix(available_prerequisites=None)  # type: ignore[arg-type]
+
+        with self.assertRaises(TypeError):
+            family_eligibility_matrix(
+                available_prerequisites={"ohlcv_m15", "spread_bid_ask"},
+                required_regime_filters="spread_max_pips",
+            )
+
+    def test_eligibility_matrix_can_apply_horizon_and_regime_filter_constraints(self):
+        matrix = family_eligibility_matrix(
+            available_prerequisites={
+                "ohlcv_m15",
+                "spread_bid_ask",
+                "iana_timezone_rules",
+            },
+            target_horizon_bars=70,
+            required_regime_filters={"spread_max_pips"},
+        )
+        by_id = {item.contract_id: item for item in matrix}
+
+        self.assertFalse(by_id["S04"].eligible)
+        self.assertFalse(by_id["S04"].horizon_eligible)  # S04 max horizon is 40
+        self.assertEqual(by_id["S04"].missing_regime_filters, ())
+
+        self.assertFalse(by_id["S05"].eligible)
+        self.assertEqual(by_id["S05"].missing_regime_filters, ("spread_max_pips",))
+        self.assertTrue(by_id["S05"].horizon_eligible)
+
+        self.assertTrue(by_id["S02"].eligible)
+        self.assertEqual(by_id["S02"].missing_regime_filters, ())
+
+        with self.assertRaises(ValueError):
+            family_eligibility_matrix(
+                available_prerequisites={"ohlcv_m15", "spread_bid_ask"},
+                target_horizon_bars=0,
+            )
 
     def test_default_registry_remains_compatible_with_validated_guard(self):
         self.assertEqual(default_strategy_family_registry(), validated_strategy_family_registry())

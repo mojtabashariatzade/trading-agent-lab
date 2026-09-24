@@ -88,14 +88,20 @@ class FamilyEligibility:
     contract_id: str
     eligible: bool
     missing_prerequisites: tuple[str, ...]
+    horizon_eligible: bool = True
+    missing_regime_filters: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not _CONTRACT_ID_PATTERN.fullmatch(self.contract_id):
             raise ValueError("contract_id must be one of S01..S15")
-        normalized = tuple(sorted({str(item).strip() for item in self.missing_prerequisites if str(item).strip()}))
-        object.__setattr__(self, "missing_prerequisites", normalized)
-        if self.eligible and normalized:
-            raise ValueError("eligible entries may not include missing_prerequisites")
+        normalized_prereqs = tuple(sorted({str(item).strip() for item in self.missing_prerequisites if str(item).strip()}))
+        object.__setattr__(self, "missing_prerequisites", normalized_prereqs)
+
+        normalized_filters = tuple(sorted({str(item).strip() for item in self.missing_regime_filters if str(item).strip()}))
+        object.__setattr__(self, "missing_regime_filters", normalized_filters)
+
+        if self.eligible and (normalized_prereqs or normalized_filters or not self.horizon_eligible):
+            raise ValueError("eligible entries may not include missing prerequisites, missing filters, or horizon mismatches")
 
 
 @dataclass(frozen=True)
@@ -128,6 +134,20 @@ def _normalized_capabilities(available_prerequisites: Iterable[str]) -> set[str]
         iterator = iter(available_prerequisites)
     except TypeError as exc:
         raise TypeError("available_prerequisites must be iterable") from exc
+
+    return {str(item).strip() for item in iterator if str(item).strip()}
+
+
+def _normalized_filter_tokens(filter_tokens: Iterable[str] | None) -> set[str]:
+    if filter_tokens is None:
+        return set()
+    if isinstance(filter_tokens, (str, bytes)):
+        raise TypeError("required_regime_filters must be an iterable of filter tokens, not a string")
+
+    try:
+        iterator = iter(filter_tokens)
+    except TypeError as exc:
+        raise TypeError("required_regime_filters must be iterable") from exc
 
     return {str(item).strip() for item in iterator if str(item).strip()}
 
@@ -375,21 +395,42 @@ def family_definition_by_contract_id(contract_id: str) -> StrategyFamilyDefiniti
     raise KeyError(f"Unknown contract_id: {contract_id}")
 
 
-def family_eligibility_matrix(*, available_prerequisites: Iterable[str]) -> tuple[FamilyEligibility, ...]:
+def family_eligibility_matrix(
+    *,
+    available_prerequisites: Iterable[str],
+    target_horizon_bars: int | None = None,
+    required_regime_filters: Iterable[str] | None = None,
+) -> tuple[FamilyEligibility, ...]:
     """Compute eligibility per contract family from available point-in-time prerequisites.
 
-    Families are eligible only when all declared data_prerequisites are available.
+    Families are eligible only when:
+    - all declared data_prerequisites are available,
+    - target_horizon_bars falls inside each family's horizon bounds (if provided),
+    - all required_regime_filters are supported by the family definition.
     """
 
     available = _normalized_capabilities(available_prerequisites)
+    required_filters = _normalized_filter_tokens(required_regime_filters)
+    if target_horizon_bars is not None and target_horizon_bars < 1:
+        raise ValueError("target_horizon_bars must be positive when provided")
+
     matrix: list[FamilyEligibility] = []
     for entry in validated_strategy_family_registry():
         missing = tuple(sorted(prereq for prereq in entry.data_prerequisites if prereq not in available))
+        horizon_eligible = (
+            True
+            if target_horizon_bars is None
+            else entry.horizon_bars[0] <= target_horizon_bars <= entry.horizon_bars[1]
+        )
+        missing_filters = tuple(sorted(filter_name for filter_name in required_filters if filter_name not in entry.filters))
+        is_eligible = not missing and horizon_eligible and not missing_filters
         matrix.append(
             FamilyEligibility(
                 contract_id=entry.contract_id,
-                eligible=not missing,
+                eligible=is_eligible,
                 missing_prerequisites=missing,
+                horizon_eligible=horizon_eligible,
+                missing_regime_filters=missing_filters,
             )
         )
     return tuple(matrix)
