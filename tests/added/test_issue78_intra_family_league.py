@@ -82,6 +82,34 @@ class Issue78IntraFamilyLeagueTests(unittest.TestCase):
             ("S01-V02", "S01-V03", "S01-V01"),
         )
 
+    def test_tie_break_is_variant_id_and_ineligible_variants_not_ranked(self):
+        registry = default_strategy_family_registry()
+        available_prerequisites = {
+            prerequisite: True
+            for definition in registry
+            for prerequisite in definition.data_prerequisites
+        }
+        # Force S10 family to become fully ineligible without impacting S02.
+        available_prerequisites["cross_pair_ohlcv_m15"] = False
+
+        harness = IntraFamilyLeagueHarness()
+        result = harness.evaluate(
+            available_prerequisites=available_prerequisites,
+            variant_scores={"S02": {"S02-V03": 5.0, "S02-V01": 5.0, "S02-V02": 5.0}},
+        )
+
+        s02_ranked = dict(result.ranked_by_family)["S02"]
+        self.assertEqual(
+            tuple(item.variant_id for item in s02_ranked[:3]),
+            ("S02-V01", "S02-V02", "S02-V03"),
+        )
+
+        s10_ranked = dict(result.ranked_by_family)["S10"]
+        self.assertEqual(s10_ranked, ())
+        s10_first_variant = next(row for row in result.matrix if row.contract_id == "S10").variants[0]
+        self.assertFalse(s10_first_variant.eligible)
+        self.assertIn("PREREQUISITE_UNAVAILABLE:cross_pair_ohlcv_m15", s10_first_variant.reasons)
+
 
 if __name__ == "__main__":
     unittest.main()
