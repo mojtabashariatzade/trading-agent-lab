@@ -167,6 +167,32 @@ class T003StrategyExpertTests(unittest.TestCase):
         self.assertEqual(expert.propose(no_compression).reason, "NO_COMPRESSION")
         self.assertEqual(expert.propose(no_expansion).reason, "NO_EXPANSION")
 
+    def test_volatility_compression_data_gap_and_no_breakout_paths(self):
+        expert = VolatilityCompressionBreakoutExpert(
+            VolatilityCompressionConfig(
+                lookback=3,
+                compression_threshold=0.7,
+                expansion_multiplier=2.0,
+            )
+        )
+        start = datetime(2026, 1, 5, 0, 0, tzinfo=UTC)
+        rows = [
+            compression_row(start + timedelta(minutes=15 * 0), high=100.8, low=100.0, close=100.4),
+            compression_row(start + timedelta(minutes=15 * 1), high=100.9, low=100.1, close=100.5),
+            compression_row(start + timedelta(minutes=15 * 2), high=101.0, low=100.2, close=100.6),
+            compression_row(start + timedelta(minutes=15 * 3), high=100.62, low=100.38, close=100.50),
+            compression_row(start + timedelta(minutes=15 * 4), high=101.25, low=100.35, close=100.50),
+        ]
+
+        no_breakout = expert.propose(rows)
+        self.assertEqual(no_breakout.side, Side.PASS)
+        self.assertEqual(no_breakout.reason, "NO_BREAKOUT")
+
+        rows[2]["gap_before"] = True
+        data_gap = expert.propose(rows)
+        self.assertEqual(data_gap.side, Side.PASS)
+        self.assertEqual(data_gap.reason, "DATA_GAP")
+
     def test_shared_and_native_exit_leagues_are_distinct(self):
         expert = EmaTrendExpert(
             EmaTrendConfig(
