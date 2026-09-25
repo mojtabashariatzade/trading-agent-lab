@@ -238,6 +238,102 @@ class DonchianBreakoutExpert:
 
 
 @dataclass(frozen=True)
+class VolatilityCompressionConfig:
+    lookback: int = 20
+    compression_threshold: float = 0.60
+    expansion_multiplier: float = 1.20
+    expiry_bars: int = 3
+    native_exit: ExitConfig = field(default_factory=lambda: ExitConfig(0.30, 0.70))
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "lookback", _positive_int(self.lookback, "lookback"))
+        compression_threshold = float(self.compression_threshold)
+        if not isfinite(compression_threshold) or compression_threshold <= 0:
+            raise ValueError("compression_threshold must be finite and positive")
+        object.__setattr__(self, "compression_threshold", compression_threshold)
+
+        expansion_multiplier = float(self.expansion_multiplier)
+        if not isfinite(expansion_multiplier) or expansion_multiplier <= 1.0:
+            raise ValueError("expansion_multiplier must be finite and greater than 1")
+        object.__setattr__(self, "expansion_multiplier", expansion_multiplier)
+        object.__setattr__(self, "expiry_bars", _positive_int(self.expiry_bars, "expiry_bars"))
+
+
+class VolatilityCompressionBreakoutExpert:
+    """S03 seed: breakout after a causal volatility compression regime."""
+
+    strategy_id = "VOLATILITY_COMPRESSION_BREAKOUT"
+    version = "1.0.0"
+
+    def __init__(self, config: VolatilityCompressionConfig | None = None):
+        self.config = config or VolatilityCompressionConfig()
+
+    def propose(
+        self,
+        rows: Sequence[Mapping[str, object]],
+        *,
+        league: ExitLeague = ExitLeague.NATIVE,
+        shared_exit: ExitConfig | None = None,
+    ) -> StrategyProposal:
+        bars = closed_bars(rows)
+        need = self.config.lookback + 2
+        if len(bars) < need:
+            return self._pass(bars, league, shared_exit, "INSUFFICIENT_HISTORY")
+
+        window = bars[-need:]
+        if any(bar.gap_before for bar in window[1:]):
+            return self._pass(bars, league, shared_exit, "DATA_GAP")
+
+        baseline = window[:-2]
+        compression_bar = window[-2]
+        breakout_bar = window[-1]
+
+        baseline_ranges = [bar.high - bar.low for bar in baseline]
+        baseline_average_range = fmean(baseline_ranges)
+        compression_range = compression_bar.high - compression_bar.low
+        if compression_range > baseline_average_range * self.config.compression_threshold:
+            return self._pass(bars, league, shared_exit, "NO_COMPRESSION")
+
+        breakout_range = breakout_bar.high - breakout_bar.low
+        if breakout_range < compression_range * self.config.expansion_multiplier:
+            return self._pass(bars, league, shared_exit, "NO_EXPANSION")
+
+        if breakout_bar.close > compression_bar.high:
+            side, reason = Side.BUY, "UPSIDE_COMPRESSION_BREAKOUT"
+        elif breakout_bar.close < compression_bar.low:
+            side, reason = Side.SELL, "DOWNSIDE_COMPRESSION_BREAKOUT"
+        else:
+            side, reason = Side.PASS, "NO_BREAKOUT"
+
+        return _proposal(
+            strategy_id=self.strategy_id,
+            version=self.version,
+            bars=bars,
+            side=side,
+            reason=reason,
+            expiry_bars=self.config.expiry_bars,
+            league=league,
+            native_exit=self.config.native_exit,
+            shared_exit=shared_exit,
+        )
+
+    def _pass(self, bars, league, shared_exit, reason):
+        if not bars:
+            raise ValueError("At least one closed bar is required")
+        return _proposal(
+            strategy_id=self.strategy_id,
+            version=self.version,
+            bars=bars,
+            side=Side.PASS,
+            reason=reason,
+            expiry_bars=self.config.expiry_bars,
+            league=league,
+            native_exit=self.config.native_exit,
+            shared_exit=shared_exit,
+        )
+
+
+@dataclass(frozen=True)
 class BollingerReentryConfig:
     window: int = 20
     deviations: float = 2.0
