@@ -36,7 +36,13 @@ class DailyPlanTests(unittest.TestCase):
         self.assertIn('G01', report['overdue_original_targets'])
 
     def test_blocked_source_allows_independent_research(self):
-        self.state['records']['R01']={'state':'BLOCKED','blocker':'Provider archive permissions unresolved'}
+        self.state['records']['R01']={
+            'state':'BLOCKED',
+            'blocker':'Provider archive permissions unresolved',
+            'blocker_owner':'Data provider administrator',
+            'unblock_condition':'Grant archive permissions for bounded historical sample',
+            'blocked_by':['ISSUE-37-ACCESS'],
+        }
         report = module.preview(self.plan, self.state, date(2026,9,25))
         self.assertEqual(report['selected']['research'], 'R03')
 
@@ -44,6 +50,11 @@ class DailyPlanTests(unittest.TestCase):
         self.done('G01')
         report = module.preview(self.plan, self.state, date(2026,9,24))
         self.assertEqual(report['selected']['product'], 'G02')
+
+    def test_blocked_record_requires_owner_dependency_and_unblock_condition(self):
+        self.state['records']['R01']={'state':'BLOCKED','blocker':'Waiting on source'}
+        with self.assertRaises(ValueError):
+            module.validate(self.plan,self.state)
 
     def test_preview_is_deterministic_and_does_not_mutate_inputs(self):
         before = copy.deepcopy((self.plan,self.state))
@@ -113,5 +124,9 @@ class DailyPlanTests(unittest.TestCase):
     def test_daily_row_wrong_lane_is_rejected(self):
         self.plan['days'][0]['research']='G01'
         with self.assertRaises(ValueError): module.validate(self.plan,self.state)
+
+    def test_preview_reports_queue_policy_references(self):
+        report = module.preview(self.plan, self.state, date(2026, 9, 22))
+        self.assertEqual(report['queue_policy_issue_refs'], [52, 57])
 
 if __name__=='__main__': unittest.main()
