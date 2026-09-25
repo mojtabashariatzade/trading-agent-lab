@@ -75,8 +75,18 @@ def validate(plan: dict, state: dict) -> dict[str, dict]:
             raise ValueError('DONE needs a completion time and evidence reference')
         if status in ACTIVE and (not record.get('executor') or not record.get('started_at')):
             raise ValueError('Active work needs its real executor and start time')
-        if status == 'BLOCKED' and not record.get('blocker'):
-            raise ValueError('BLOCKED needs a specific reason')
+        if status == 'BLOCKED':
+            if not record.get('blocker'):
+                raise ValueError('BLOCKED needs a specific reason')
+            if not record.get('blocker_owner'):
+                raise ValueError('BLOCKED needs an owner')
+            if not record.get('unblock_condition'):
+                raise ValueError('BLOCKED needs an explicit unblock condition')
+            blocked_by = record.get('blocked_by')
+            if (not isinstance(blocked_by, list)
+                    or not blocked_by
+                    or not all(isinstance(dep, str) and dep.strip() for dep in blocked_by)):
+                raise ValueError('BLOCKED needs blocked_by dependency identifiers')
         for field in ('started_at', 'completed_at'):
             if record.get(field):
                 stamp = datetime.fromisoformat(record[field].replace('Z', '+00:00'))
@@ -111,7 +121,15 @@ def preview(plan: dict, state: dict, on: date) -> dict:
         needs = [d for d in task['depends_on'] if status(d) != 'DONE']
         if needs or status(ident) == 'BLOCKED':
             missing[ident] = needs
-            blocked.append({'id': ident, 'dependencies': needs, 'reason': records.get(ident, {}).get('blocker')})
+            blocked_record = records.get(ident, {})
+            blocked.append({
+                'id': ident,
+                'dependencies': needs,
+                'reason': blocked_record.get('blocker'),
+                'owner': blocked_record.get('blocker_owner'),
+                'unblock_condition': blocked_record.get('unblock_condition'),
+                'blocked_by': blocked_record.get('blocked_by', []),
+            })
         if task['planned_finish'] < on.isoformat():
             overdue.append(ident)
     selected, interrupts, pulled_forward = {}, [], []
@@ -139,6 +157,7 @@ def preview(plan: dict, state: dict, on: date) -> dict:
             'interrupt_at_safe_checkpoint': interrupts, 'pulled_forward': pulled_forward,
             'state_snapshot_date': state['as_of_date'], 'state_is_stale': state_date < on,
             'evidence_status': 'REFERENCES_ONLY_REVALIDATE_IN_GITHUB',
+            'queue_policy_issue_refs': [52, 57],
             'mode': 'READ_ONLY_PREVIEW_NO_WORKER_STARTED'}
 
 
