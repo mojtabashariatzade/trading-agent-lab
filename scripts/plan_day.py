@@ -33,6 +33,23 @@ def build_queue_control_comment(blocked: list[dict]) -> str:
     return '\n'.join(lines)
 
 
+def build_pr_hygiene_comment(selected: dict[str, str | None], blocked: list[dict]) -> str:
+    """Build deterministic PR hygiene guidance aligned to queue-control policy."""
+    lines = [
+        'PR hygiene baseline: #57 (locked roadmap + epic-creation policy), #52 (GitHub source of truth).',
+        'No silent scope expansion: any new scope must be linked to a GitHub Issue update before merge.',
+    ]
+    for lane in ('product', 'research'):
+        ident = selected.get(lane)
+        if ident:
+            lines.append(f'Active {lane} lane card: {ident}.')
+    if blocked:
+        lines.append('Blocked cards must keep dependency, owner, and explicit unblock_condition visible in GitHub.')
+    else:
+        lines.append('No active BLOCKED cards; keep roadmap alignment checks in each PR review comment.')
+    return '\n'.join(lines)
+
+
 def validate(plan: dict, state: dict) -> dict[str, dict]:
     if plan.get('schema_version') != '1.0' or state.get('schema_version') != '1.0':
         raise ValueError('Unsupported schema version')
@@ -178,6 +195,7 @@ def preview(plan: dict, state: dict, on: date) -> dict:
             'evidence_status': 'REFERENCES_ONLY_REVALIDATE_IN_GITHUB',
             'queue_policy_issue_refs': QUEUE_POLICY_ISSUE_REFS,
             'queue_control_comment_template': build_queue_control_comment(blocked),
+            'pr_hygiene_comment_template': build_pr_hygiene_comment(selected, blocked),
             'mode': 'READ_ONLY_PREVIEW_NO_WORKER_STARTED'}
 
 
