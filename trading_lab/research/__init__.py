@@ -16,6 +16,11 @@ from .routing import (
     build_read_only_handoff_record,
     decide_research_route,
 )
+from .github_policy import (
+    PolicyEvaluationResult,
+    evaluate_blocker_metadata_policy,
+    evaluate_epic_creation_policy,
+)
 
 __all__ = [
     "run_artifact",
@@ -32,4 +37,7 @@ __all__ = [
     "ReadOnlyHandoffRecord",
     "decide_research_route",
     "build_read_only_handoff_record",
+    "PolicyEvaluationResult",
+    "evaluate_epic_creation_policy",
+    "evaluate_blocker_metadata_policy",
 ]
