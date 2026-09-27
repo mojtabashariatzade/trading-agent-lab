@@ -12,6 +12,25 @@ from pathlib import Path
 STATES = {'QUEUED', 'WORKING', 'REVIEW', 'BLOCKED', 'DONE', 'CANCELLED'}
 ACTIVE = {'WORKING', 'REVIEW'}
 ROOT = Path(__file__).resolve().parents[1]
+QUEUE_POLICY_ISSUE_REFS = [52, 57]
+
+
+def build_queue_control_comment(blocked: list[dict]) -> str:
+    """Build a deterministic queue-control comment template for GitHub updates."""
+    lines = [
+        'Queue-control policy baseline: #52 (GitHub source of truth), #57 (locked roadmap + epic-creation policy).',
+    ]
+    if not blocked:
+        lines.append('No active BLOCKED cards in this snapshot.')
+    else:
+        for item in blocked:
+            dependencies = ','.join(item.get('blocked_by') or item.get('dependencies') or []) or 'MISSING'
+            owner = item.get('owner') or 'MISSING'
+            unblock = item.get('unblock_condition') or 'MISSING'
+            lines.append(
+                f"BLOCKED {item.get('id', 'UNKNOWN')}: dependency={dependencies}; owner={owner}; unblock_condition={unblock}."
+            )
+    return '\n'.join(lines)
 
 
 def validate(plan: dict, state: dict) -> dict[str, dict]:
@@ -157,7 +176,8 @@ def preview(plan: dict, state: dict, on: date) -> dict:
             'interrupt_at_safe_checkpoint': interrupts, 'pulled_forward': pulled_forward,
             'state_snapshot_date': state['as_of_date'], 'state_is_stale': state_date < on,
             'evidence_status': 'REFERENCES_ONLY_REVALIDATE_IN_GITHUB',
-            'queue_policy_issue_refs': [52, 57],
+            'queue_policy_issue_refs': QUEUE_POLICY_ISSUE_REFS,
+            'queue_control_comment_template': build_queue_control_comment(blocked),
             'mode': 'READ_ONLY_PREVIEW_NO_WORKER_STARTED'}
 
 
