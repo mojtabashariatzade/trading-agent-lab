@@ -129,4 +129,26 @@ class DailyPlanTests(unittest.TestCase):
         report = module.preview(self.plan, self.state, date(2026, 9, 22))
         self.assertEqual(report['queue_policy_issue_refs'], [52, 57])
 
+    def test_preview_includes_queue_control_template_with_policy_refs(self):
+        report = module.preview(self.plan, self.state, date(2026, 9, 22))
+        template = report['queue_control_comment_template']
+        self.assertIn('#52', template)
+        self.assertIn('#57', template)
+        self.assertIn('No active BLOCKED cards', template)
+
+    def test_queue_control_template_lists_blocked_dependency_owner_and_unblock_condition(self):
+        self.state['records']['R01'] = {
+            'state': 'BLOCKED',
+            'blocker': 'Waiting on dependency task',
+            'blocker_owner': 'Core orchestrator',
+            'unblock_condition': 'Merge dependency PR',
+            'blocked_by': ['ISSUE-57-DEPENDENCY'],
+        }
+        report = module.preview(self.plan, self.state, date(2026, 9, 25))
+        template = report['queue_control_comment_template']
+        self.assertIn('BLOCKED R01', template)
+        self.assertIn('dependency=ISSUE-57-DEPENDENCY', template)
+        self.assertIn('owner=Core orchestrator', template)
+        self.assertIn('unblock_condition=Merge dependency PR', template)
+
 if __name__=='__main__': unittest.main()
