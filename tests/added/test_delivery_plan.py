@@ -151,4 +151,25 @@ class DailyPlanTests(unittest.TestCase):
         self.assertIn('owner=Core orchestrator', template)
         self.assertIn('unblock_condition=Merge dependency PR', template)
 
+    def test_preview_includes_pr_hygiene_template_with_policy_refs(self):
+        report = module.preview(self.plan, self.state, date(2026, 9, 22))
+        template = report['pr_hygiene_comment_template']
+        self.assertIn('#57', template)
+        self.assertIn('#52', template)
+        self.assertIn('No silent scope expansion', template)
+
+    def test_pr_hygiene_template_includes_active_cards_and_blocked_guidance(self):
+        self.state['records']['R01'] = {
+            'state': 'BLOCKED',
+            'blocker': 'Waiting on dependency task',
+            'blocker_owner': 'Core orchestrator',
+            'unblock_condition': 'Merge dependency PR',
+            'blocked_by': ['ISSUE-57-DEPENDENCY'],
+        }
+        report = module.preview(self.plan, self.state, date(2026, 9, 25))
+        template = report['pr_hygiene_comment_template']
+        self.assertIn('Active product lane card: G01.', template)
+        self.assertIn('Active research lane card: R03.', template)
+        self.assertIn('dependency, owner, and explicit unblock_condition', template)
+
 if __name__=='__main__': unittest.main()
