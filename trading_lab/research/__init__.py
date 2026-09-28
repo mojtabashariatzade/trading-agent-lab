@@ -20,6 +20,7 @@ from .github_policy import (
     PolicyEvaluationResult,
     evaluate_blocker_metadata_policy,
     evaluate_epic_creation_policy,
+    evaluate_github_trace_policy,
 )
 
 __all__ = [
@@ -40,4 +41,5 @@ __all__ = [
     "PolicyEvaluationResult",
     "evaluate_epic_creation_policy",
     "evaluate_blocker_metadata_policy",
+    "evaluate_github_trace_policy",
 ]
