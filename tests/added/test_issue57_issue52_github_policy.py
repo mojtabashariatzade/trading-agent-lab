@@ -5,6 +5,7 @@ import unittest
 from trading_lab.research.github_policy import (
     evaluate_blocker_metadata_policy,
     evaluate_epic_creation_policy,
+    evaluate_github_trace_policy,
 )
 
 
@@ -66,6 +67,27 @@ class Issue57Issue52PolicyTests(unittest.TestCase):
         result = evaluate_blocker_metadata_policy(body)
         self.assertFalse(result.compliant)
         self.assertIn("UNBLOCK_CONDITION", result.missing_requirements)
+
+    def test_github_trace_policy_passes_when_report_has_issue_trace(self):
+        body = """
+        In progress: implementation linked to issue #52 and PR #117.
+        GitHub is source of truth; internal board is supportive only.
+        """
+
+        result = evaluate_github_trace_policy(body)
+        self.assertTrue(result.compliant)
+        self.assertEqual(result.missing_requirements, ())
+
+    def test_github_trace_policy_fails_when_internal_only_update_has_no_trace(self):
+        body = """
+        Done on internal board only.
+        Kanban says blocked pending review.
+        """
+
+        result = evaluate_github_trace_policy(body)
+        self.assertFalse(result.compliant)
+        self.assertIn("GITHUB_TRACE_PRESENT", result.missing_requirements)
+        self.assertIn("INTERNAL_TOOLS_MARKED_SUPPORTIVE", result.missing_requirements)
 
 
 if __name__ == "__main__":

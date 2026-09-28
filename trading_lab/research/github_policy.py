@@ -7,6 +7,7 @@ process checklists:
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 
@@ -77,6 +78,76 @@ def evaluate_blocker_metadata_policy(text_body: str) -> PolicyEvaluationResult:
         ("OWNER", _contains_any(text, ("owner:", "assignee:", "responsible:"))),
         ("DEPENDENCY", _contains_any(text, ("dependency:", "depends on", "blocked-by", "blocked by"))),
         ("UNBLOCK_CONDITION", _contains_any(text, ("unblock condition:", "unblocked when", "to unblock"))),
+    )
+
+    found = tuple(code for code, ok in checks if ok)
+    missing = tuple(code for code, ok in checks if not ok)
+    return PolicyEvaluationResult(compliant=not missing, found_requirements=found, missing_requirements=missing)
+
+
+def evaluate_github_trace_policy(text_body: str) -> PolicyEvaluationResult:
+    """Validate process updates against issue #52 GitHub-only visibility rules.
+
+    The check is deterministic and text-based so it can gate templates/comments:
+    - Every progress update must include a GitHub-visible trace (Issue/PR/Comment).
+    - Internal board/tool state may appear only as supportive context.
+    """
+    text = _normalize_text(text_body)
+
+    has_issue_ref = bool(re.search(r"#\d+", text))
+    has_github_url = _contains_any(
+        text,
+        (
+            "github.com",
+            "/issues/",
+            "/pull/",
+        ),
+    )
+    has_trace = has_issue_ref or has_github_url
+
+    has_visibility_entity = _contains_any(
+        text,
+        (
+            "issue",
+            "sub-issue",
+            "sub issue",
+            "pr",
+            "pull request",
+            "comment",
+        ),
+    )
+
+    mentions_internal_only_source = _contains_any(
+        text,
+        (
+            "kanban",
+            "internal board",
+            "internal tracker",
+            "local-only",
+            "local only",
+        ),
+    )
+    internal_is_marked_supportive = _contains_any(
+        text,
+        (
+            "supportive only",
+            "supporting only",
+            "not source of truth",
+            "github is source of truth",
+        ),
+    )
+
+    has_status_word = _contains_any(text, ("done", "blocked", "in progress", "complete", "completed"))
+    internal_only_status_violation = has_status_word and mentions_internal_only_source and not has_trace
+
+    checks: tuple[tuple[str, bool], ...] = (
+        ("GITHUB_TRACE_PRESENT", has_trace),
+        ("VISIBILITY_ENTITY_PRESENT", has_visibility_entity),
+        (
+            "INTERNAL_TOOLS_MARKED_SUPPORTIVE",
+            (not mentions_internal_only_source) or internal_is_marked_supportive,
+        ),
+        ("NO_INTERNAL_ONLY_STATUS", not internal_only_status_violation),
     )
 
     found = tuple(code for code, ok in checks if ok)
