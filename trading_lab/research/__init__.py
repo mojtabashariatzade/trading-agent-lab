@@ -22,6 +22,12 @@ from .github_policy import (
     evaluate_epic_creation_policy,
     evaluate_github_trace_policy,
 )
+from .bridge_mailbox import (
+    BridgeMarker,
+    format_inbound_marker,
+    format_outbound_marker,
+    parse_bridge_marker,
+)
 
 __all__ = [
     "run_artifact",
@@ -42,4 +48,8 @@ __all__ = [
     "evaluate_epic_creation_policy",
     "evaluate_blocker_metadata_policy",
     "evaluate_github_trace_policy",
+    "BridgeMarker",
+    "parse_bridge_marker",
+    "format_inbound_marker",
+    "format_outbound_marker",
 ]
