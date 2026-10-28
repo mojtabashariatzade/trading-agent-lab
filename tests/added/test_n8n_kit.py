@@ -139,10 +139,11 @@ class BridgeTests(unittest.TestCase):
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         root='http://127.0.0.1:'+str(server.server_port)
         try:
-            for path,key in [('/v1/status',''),('/v1/jobs/claim','control')]:
-                req=request.Request(root+path,data=b'{}',headers={'X-Control-Key':key})
-                with self.assertRaises(error.HTTPError) as exc:request.urlopen(req)
-                self.assertEqual(exc.exception.code,401)
+            for _ in range(20):
+                for path,key in [('/v1/status',''),('/v1/jobs/claim','control')]:
+                    req=request.Request(root+path,data=b'{}',headers={'X-Control-Key':key})
+                    with self.assertRaises(error.HTTPError) as exc:request.urlopen(req)
+                    self.assertEqual(exc.exception.code,401)
             req=request.Request(root+'/v1/status',data=b'{}',headers={'X-Control-Key':'control'})
             with request.urlopen(req) as resp:self.assertFalse(json.load(resp)['trading_enabled'])
         finally:server.shutdown();server.server_close();thread.join()

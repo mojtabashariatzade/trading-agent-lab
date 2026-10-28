@@ -340,6 +340,14 @@ def make_handler(bridge, control_key: str, worker_key: str):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass  # Never log URLs, payloads, tokens or private messages.
+        def discard_request_body(self):
+            """Drain any announced body so early error responses do not reset clients."""
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+            except (TypeError, ValueError):
+                length = 0
+            if length > 0:
+                self.rfile.read(min(length, MAX_BODY + 1))
         def answer(self, code, body):
             raw = json.dumps(body).encode()
             self.send_response(code)
@@ -351,9 +359,11 @@ def make_handler(bridge, control_key: str, worker_key: str):
             self.answer(200 if self.path == '/healthz' else 404, {'state': 'ALIVE' if self.path == '/healthz' else 'NOT_FOUND'})
         def do_POST(self):
             if self.path not in ROUTES:
+                self.discard_request_body()
                 return self.answer(404, {'error': 'NOT_FOUND'})
             key = worker_key if self.path.startswith('/v1/jobs/') else control_key
             if not key or not hmac.compare_digest(self.headers.get('X-Control-Key', ''), key):
+                self.discard_request_body()
                 return self.answer(401, {'error': 'UNAUTHORIZED'})
             try:
                 length = int(self.headers.get('Content-Length', '-1'))
